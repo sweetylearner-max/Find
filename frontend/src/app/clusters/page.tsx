@@ -126,7 +126,7 @@ export default function ClustersPage() {
   const filteredMembers =
     selectedClusterQuery.data?.members.filter((member) =>
       member.filename.toLowerCase().includes(filterText.toLowerCase()),
-  ) ?? [];
+    ) ?? [];
 
   return (
     <div className="page-shell">
