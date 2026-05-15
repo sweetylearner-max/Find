@@ -199,6 +199,33 @@ uv run ruff format --check .
 4. Run quality checks from CONTRIBUTING.
 5. Open a PR using the project template and link the issue.
 
+## Contribution Workflow
+
+```text
+1. Find an issue          →  github.com/Abhash-Chakraborty/Find/issues
+        ↓
+2. Comment to get assigned
+        ↓
+3. Fork & create branch   →  git checkout -b feat/your-feature
+        ↓
+4. Make your changes
+        ↓
+5. Run quality checks
+   Frontend:  cd frontend && pnpm check && pnpm build
+   Backend:   cd backend && uv run ruff check .
+        ↓
+6. Commit & push          →  git push origin feat/your-feature
+        ↓
+7. Open PR & link issue   →  Closes #(issue number)
+        ↓
+8. Wait for review ✅
+```
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for full details.
+Labels: [`good first issue`](https://github.com/Abhash-Chakraborty/Find/labels/good%20first%20issue) · [`level 2`](https://github.com/Abhash-Chakraborty/Find/labels/level%202) · [`help wanted`](https://github.com/Abhash-Chakraborty/Find/labels/help%20wanted)
+
+
+
 ## Contact and support
 
 - Use [GitHub Issues](https://github.com/Abhash-Chakraborty/Find/issues) for bugs/features/questions.
