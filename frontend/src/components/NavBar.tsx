@@ -19,6 +19,7 @@ export default function NavBar() {
         <Link
           key={href}
           href={href}
+          aria-current={pathname === href ? "page" : undefined}
           className={
             pathname === href
               ? "rounded-full px-3 py-1.5 text-sm font-medium text-[#f0f0f0] bg-white/[0.12] sm:px-4"
