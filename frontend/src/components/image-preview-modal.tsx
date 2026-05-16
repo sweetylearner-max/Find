@@ -8,17 +8,20 @@ import {
   Heart,
   ImageOff,
   Loader2,
+  RotateCcw,
   Trash2,
   X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   deleteImage,
   getImageDetail,
   type MediaDetail,
   type MediaItem,
+  reprocessImage,
   toggleLike,
 } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/media";
@@ -145,6 +148,20 @@ export function ImagePreviewModal({
       queryClient.invalidateQueries({ queryKey: ["image-detail", id] });
       onDeleted?.(id);
       onClose();
+    },
+  });
+
+  const reprocessMutation = useMutation({
+    mutationFn: (mediaId: number) => reprocessImage(mediaId),
+    onSuccess: ({ media_id }) => {
+      queryClient.invalidateQueries({ queryKey: ["gallery"] });
+      queryClient.invalidateQueries({ queryKey: ["image-detail", media_id] });
+      toast.success("Retry queued — analysis will restart shortly.");
+    },
+    onError: () => {
+      toast.error(
+        "Retry failed. The queue may be unavailable — please try again.",
+      );
     },
   });
 
@@ -405,6 +422,23 @@ export function ImagePreviewModal({
               </div>
             ) : (
               <div className="flex flex-wrap items-center gap-2">
+                {(status === "failed" ||
+                  (status === "indexed" && !caption)) && (
+                  <button
+                    type="button"
+                    onClick={() => reprocessMutation.mutate(media.id)}
+                    disabled={reprocessMutation.isPending}
+                    className="frost-button inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#a1a4a5] disabled:cursor-not-allowed disabled:opacity-70"
+                    aria-label="Retry analysis"
+                  >
+                    <RotateCcw
+                      className={`h-4 w-4 ${reprocessMutation.isPending ? "animate-spin" : ""}`}
+                    />
+                    {reprocessMutation.isPending
+                      ? "Retrying…"
+                      : "Retry Analysis"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => likeMutation.mutate(media.id)}

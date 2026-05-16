@@ -33,7 +33,7 @@ Important paths:
 
 ## Contribution workflow
 
-1. Find an issue labeled `good first issue`, `help wanted`, `gssoc26`, `level 1`, `level 2`, or `level 3`.
+1. Find an issue labeled `good first issue`, `help wanted`, `gssoc26`, `level:beginner`, `level:intermediate`, or `level:advanced`.
 2. Comment on the issue and wait for maintainer assignment before starting.
 3. Fork the repository and create a branch from `main`.
 4. Keep the change scoped to one issue.
@@ -141,6 +141,7 @@ Backend:
 cd backend
 uv run ruff check .
 uv run ruff format --check .
+uv run pytest tests/ -v
 ```
 
 Compose validation:

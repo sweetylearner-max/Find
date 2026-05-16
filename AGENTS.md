@@ -11,7 +11,7 @@ Find is a local-first AI image intelligence app. Key paths:
 - `.env.example` - documented local configuration. Keep real `.env` files private.
 - `.github/workflows/ci.yml` - frontend and backend CI checks.
 
-There is no committed test directory yet. Avoid generated paths such as `frontend/.next/`, `frontend/node_modules/`, `.ruff_cache/`, `__pycache__/`, and model weights.
+Avoid generated paths such as `frontend/.next/`, `frontend/node_modules/`, `.ruff_cache/`, `__pycache__/`, and model weights.
 
 ## Build, Test, and Development Commands
 
@@ -44,6 +44,7 @@ uv run uvicorn find_api.main:app --reload
 uv run rq worker --url redis://localhost:6379 high default low
 uv run ruff check .
 uv run ruff format --check .
+uv run pytest tests/ -v
 ```
 
 Run the API and worker separately when not using Docker.
@@ -56,7 +57,7 @@ Backend code targets Python 3.12 and is checked with Ruff. Use `snake_case` for 
 
 ## Testing Guidelines
 
-No formal test suite is committed. Run the closest checks: `pnpm check && pnpm build` for frontend work and `uv run ruff check . && uv run ruff format --check .` for backend work. For integration changes, manually verify upload, job status polling, gallery, search, and clustering.
+Run the automated test suite before opening a PR: `pnpm check && pnpm build` for frontend work and `uv run ruff check . && uv run ruff format --check . && uv run pytest tests/` for backend work. For integration changes, manually verify upload, job status polling, gallery, search, and clustering.
 
 ## Commit & Pull Request Guidelines
 
