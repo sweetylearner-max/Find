@@ -131,11 +131,21 @@ export default function UploadPage() {
       const uploadedCount = data.results.filter(
         (item) => item.status === "uploaded",
       ).length;
+      const failedResults = data.results.filter(
+        (item) => item.status === "failed" && item.error,
+      );
       toast.success(
         `Archive accepted (${uploadedCount} new upload${
           uploadedCount === 1 ? "" : "s"
         })`,
       );
+      if (failedResults.length > 0) {
+        toast.error(
+          failedResults.length === 1
+            ? failedResults[0]?.error
+            : `${failedResults.length} files failed. ${failedResults[0]?.error}`,
+        );
+      }
     },
     onError: (error) => {
       toast.error(extractErrorMessage(error, "Bulk upload failed"));
