@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import {usePathname,useRouter,useSearchParams,} from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -32,7 +32,7 @@ import {
   toggleLike,
 } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/media";
-import { useRouter, usePathname } from "next/navigation";
+
 
 function GalleryPageContent() {
   const [page, setPage] = useState(1);
@@ -249,17 +249,17 @@ function GalleryPageContent() {
   );
 
   const closeDetail = useCallback(() => {
-  setSelectedMediaId(null);
-  setQuerySelectedItem(null);
+    setSelectedMediaId(null);
+    setQuerySelectedItem(null);
 
-  const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(searchParams.toString());
 
-  params.delete("media");
+    params.delete("media");
 
-  const queryString = params.toString();
-  const url = queryString ? `${pathname}?${queryString}` : pathname;
+    const queryString = params.toString();
+    const url = queryString ? `${pathname}?${queryString}` : pathname;
 
-  router.replace(url, { scroll: false });
+    router.replace(url, { scroll: false });
 }, [router, pathname, searchParams]);
 
   const filters = [
