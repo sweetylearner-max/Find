@@ -9,24 +9,31 @@ import {
   Heart,
   ImageOff,
   Loader2,
+  RotateCcw,
   Trash2,
   X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ImagePreviewModal } from "@/components/image-preview-modal";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import {
+  ImagePreviewModal,
+  type PreviewMedia,
+} from "@/components/image-preview-modal";
 import { StatusIndicator } from "@/components/status-indicator";
 import {
   deleteImage,
   type GalleryResponse,
   getGallery,
-  type MediaItem,
+  getImageDetail,
+  reprocessImage,
   toggleLike,
 } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/media";
 
-export default function GalleryPage() {
+function GalleryPageContent() {
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<
     "all" | "indexed" | "processing" | "failed"
@@ -38,10 +45,13 @@ export default function GalleryPage() {
     filename?: string;
   } | null>(null);
   const [deletionError, setDeletionError] = useState<string | null>(null);
+  const [hasOpenedFromQuery, setHasOpenedFromQuery] = useState(false);
+  const [querySelectedItem, setQuerySelectedItem] =
+    useState<PreviewMedia | null>(null);
   const limit = 24;
 
   const queryClient = useQueryClient();
-
+  const searchParams = useSearchParams();
   const galleryQueryKey = useMemo(
     () => ["gallery", page, filter, likedOnly] as const,
     [page, filter, likedOnly],
@@ -57,8 +67,66 @@ export default function GalleryPage() {
         liked: likedOnly ? true : undefined,
       }),
     placeholderData: (previous) => previous,
-  });
+    refetchInterval: (query) => {
+      const gallery = query.state.data as GalleryResponse | undefined;
 
+      return gallery?.items.some(
+        (item) => item.status === "processing" || item.status === "pending",
+      )
+        ? 5000
+        : false;
+    },
+  });
+  useEffect(() => {
+    if (hasOpenedFromQuery) {
+      return;
+    }
+
+    const mediaParam = searchParams.get("media");
+
+    if (!mediaParam || !data) {
+      return;
+    }
+
+    const mediaId = Number(mediaParam);
+
+    if (Number.isNaN(mediaId)) {
+      return;
+    }
+
+    const existingItem = data.items.find((item) => item.id === mediaId);
+
+    if (existingItem) {
+      setQuerySelectedItem(null);
+      setSelectedMediaId(mediaId);
+      setHasOpenedFromQuery(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    const openOffPageMedia = async () => {
+      try {
+        const media = await getImageDetail(mediaId);
+        if (cancelled) {
+          return;
+        }
+        setQuerySelectedItem(media);
+        setSelectedMediaId(media.id);
+        setHasOpenedFromQuery(true);
+      } catch {
+        if (!cancelled) {
+          setHasOpenedFromQuery(true);
+        }
+      }
+    };
+
+    void openOffPageMedia();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [data, searchParams, hasOpenedFromQuery]);
   const likeMutation = useMutation({
     mutationFn: (mediaId: number) => toggleLike(mediaId),
     onSuccess: ({ id }) => {
@@ -114,12 +182,30 @@ export default function GalleryPage() {
     },
   });
 
-  const selectedItem = useMemo<MediaItem | null>(() => {
-    if (!data || selectedMediaId === null) {
+  const reprocessMutation = useMutation({
+    mutationFn: (mediaId: number) => reprocessImage(mediaId),
+    onSuccess: ({ media_id }) => {
+      queryClient.invalidateQueries({ queryKey: ["gallery"] });
+      queryClient.invalidateQueries({ queryKey: ["image-detail", media_id] });
+      toast.success("Retry queued — analysis will restart shortly.");
+    },
+    onError: () => {
+      toast.error(
+        "Retry failed. The queue may be unavailable — please try again.",
+      );
+    },
+  });
+
+  const selectedItem = useMemo<PreviewMedia | null>(() => {
+    if (selectedMediaId === null) {
       return null;
     }
-    return data.items.find((item) => item.id === selectedMediaId) ?? null;
-  }, [data, selectedMediaId]);
+
+    return (
+      data?.items.find((item) => item.id === selectedMediaId) ??
+      (querySelectedItem?.id === selectedMediaId ? querySelectedItem : null)
+    );
+  }, [data, selectedMediaId, querySelectedItem]);
 
   const selectedIndex = useMemo(() => {
     if (!data || selectedMediaId === null) {
@@ -132,10 +218,13 @@ export default function GalleryPage() {
     if (!data || selectedMediaId === null) {
       return;
     }
-    if (!data.items.some((item) => item.id === selectedMediaId)) {
+    if (
+      !data.items.some((item) => item.id === selectedMediaId) &&
+      querySelectedItem?.id !== selectedMediaId
+    ) {
       setSelectedMediaId(null);
     }
-  }, [data, selectedMediaId]);
+  }, [data, selectedMediaId, querySelectedItem]);
 
   const goToAdjacent = useCallback(
     (direction: -1 | 1) => {
@@ -156,7 +245,10 @@ export default function GalleryPage() {
     [data, selectedMediaId],
   );
 
-  const closeDetail = useCallback(() => setSelectedMediaId(null), []);
+  const closeDetail = useCallback(() => {
+    setSelectedMediaId(null);
+    setQuerySelectedItem(null);
+  }, []);
 
   const filters = [
     { label: "All", value: "all" as const },
@@ -254,15 +346,35 @@ export default function GalleryPage() {
         )}
 
         {data && data.items.length === 0 && (
-          <div className="frost-panel mx-auto max-w-md rounded-3xl px-8 py-16 text-center">
-            <ImageOff className="mx-auto mb-4 h-12 w-12 text-[#5f6568]" />
-            <p className="mb-2 text-[#f0f0f0]">No images found</p>
-            <Link
-              href="/upload"
-              className="text-sm text-[#3b9eff] hover:underline"
-            >
-              Upload your first images
-            </Link>
+          <div className="w-full">
+            <div className="frost-panel mx-auto rounded-3xl px-8 py-16 text-center">
+              <ImageOff className="mx-auto mb-4 h-12 w-12 text-[#5f6568]" />
+              {likedOnly ? (
+                <>
+                  <p className="mb-2 text-[#f0f0f0]">No liked images yet</p>
+                  <p className="mb-4 text-sm text-[#a1a4a5]">
+                    Like an image to save it here.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setLikedOnly(false)}
+                    className="text-sm text-[#3b9eff] hover:underline"
+                  >
+                    View all images
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="mb-2 text-[#f0f0f0]">No images found</p>
+                  <Link
+                    href="/upload"
+                    className="text-sm text-[#3b9eff] hover:underline"
+                  >
+                    Upload your first images
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
         )}
 
@@ -281,7 +393,10 @@ export default function GalleryPage() {
                     <button
                       type="button"
                       className="relative block aspect-square w-full overflow-hidden bg-white/[0.025] text-left focus:outline-none"
-                      onClick={() => setSelectedMediaId(item.id)}
+                      onClick={() => {
+                        setQuerySelectedItem(null);
+                        setSelectedMediaId(item.id);
+                      }}
                       aria-label={`View ${item.filename}`}
                     >
                       {imageSrc ? (
@@ -352,6 +467,24 @@ export default function GalleryPage() {
                             <Download className="h-3.5 w-3.5" />
                           </a>
                         )}
+                        {(item.status === "failed" ||
+                          (item.status === "indexed" && !item.caption)) && (
+                          <button
+                            type="button"
+                            onClick={() => reprocessMutation.mutate(item.id)}
+                            disabled={reprocessMutation.isPending}
+                            className={`icon-button h-8 w-8 text-[#a1a4a5] ${
+                              reprocessMutation.isPending
+                                ? "cursor-not-allowed opacity-70"
+                                : ""
+                            }`}
+                            aria-label="Retry analysis"
+                          >
+                            <RotateCcw
+                              className={`h-3.5 w-3.5 ${reprocessMutation.isPending ? "animate-spin" : ""}`}
+                            />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() =>
@@ -416,6 +549,7 @@ export default function GalleryPage() {
           onDeleted={(mediaId) => {
             if (selectedMediaId === mediaId) {
               setSelectedMediaId(null);
+              setQuerySelectedItem(null);
             }
           }}
         />
@@ -469,5 +603,12 @@ export default function GalleryPage() {
         </div>
       )}
     </div>
+  );
+}
+export default function GalleryPage() {
+  return (
+    <Suspense fallback={null}>
+      <GalleryPageContent />
+    </Suspense>
   );
 }

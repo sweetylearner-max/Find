@@ -54,7 +54,7 @@ This project is open for **GSSoC'26** contributions.
 
 - New contributors should start with the [GSSoC'26 Contributor Guide](./GSSOC_CONTRIBUTOR_GUIDE.md).
 - Start with issues labeled [`good first issue`](https://github.com/Abhash-Chakraborty/Find/labels/good%20first%20issue)
-- For medium/advanced work, check [`level 2`](https://github.com/Abhash-Chakraborty/Find/labels/level%202) and [`level 3`](https://github.com/Abhash-Chakraborty/Find/labels/level%203)
+- For medium/advanced work, check [`level:intermediate`](https://github.com/Abhash-Chakraborty/Find/issues?q=state%3Aopen%20label%3A%22level%3Aintermediate%22) and [`level:advanced`](https://github.com/Abhash-Chakraborty/Find/issues?q=state%3Aopen%20label%3A%22level%3Aadvanced%22)
 - Look for priority queue items via [`help wanted`](https://github.com/Abhash-Chakraborty/Find/labels/help%20wanted)
 - Follow the contribution rules in [CONTRIBUTING.md](./CONTRIBUTING.md)
 
@@ -156,6 +156,7 @@ pnpm build
 cd backend
 uv run ruff check .
 uv run ruff format --check .
+uv run pytest tests/ -v
 ```
 
 ## Core flow
@@ -214,7 +215,7 @@ uv run ruff format --check .
         ↓
 5. Run quality checks
    Frontend:  cd frontend && pnpm check && pnpm build
-   Backend:   cd backend && uv run ruff check .
+   Backend:   cd backend && uv run ruff check . && uv run pytest tests/
         ↓
 6. Commit & push          →  git push origin feat/your-feature
         ↓
@@ -224,7 +225,7 @@ uv run ruff format --check .
 ```
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for full details.
-Labels: [`good first issue`](https://github.com/Abhash-Chakraborty/Find/labels/good%20first%20issue) · [`level 2`](https://github.com/Abhash-Chakraborty/Find/labels/level%202) · [`help wanted`](https://github.com/Abhash-Chakraborty/Find/labels/help%20wanted)
+Labels: [`good first issue`](https://github.com/Abhash-Chakraborty/Find/labels/good%20first%20issue) · [`level:intermediate`](https://github.com/Abhash-Chakraborty/Find/issues?q=state%3Aopen%20label%3A%22level%3Aintermediate%22) · [`help wanted`](https://github.com/Abhash-Chakraborty/Find/labels/help%20wanted)
 
 
 

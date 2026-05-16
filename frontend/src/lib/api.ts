@@ -12,11 +12,13 @@ export const api: AxiosInstance = axios.create({
 });
 
 // Types
+export type MediaStatus = "pending" | "processing" | "indexed" | "failed";
+
 export interface MediaItem {
   id: number;
   filename: string;
   minio_key: string;
-  status: "pending" | "processing" | "indexed" | "failed";
+  status: MediaStatus;
   created_at: string;
   processed_at?: string | null;
   width?: number | null;
@@ -195,7 +197,7 @@ export const getGallery = async (
   params: {
     page?: number;
     limit?: number;
-    status?: string;
+    status?: MediaStatus;
     liked?: boolean;
   } = {},
 ): Promise<GalleryResponse> => {
@@ -246,6 +248,21 @@ export const searchImages = async (params: {
   const response = await api.get<SearchResponse>("/api/search", {
     params: { q: params.query, limit: params.limit || 20 },
   });
+  return response.data;
+};
+
+export interface ReprocessResponse {
+  media_id: number;
+  job_id: string;
+  status: "queued";
+}
+
+export const reprocessImage = async (
+  mediaId: number,
+): Promise<ReprocessResponse> => {
+  const response = await api.post<ReprocessResponse>(
+    `/api/image/${mediaId}/reprocess`,
+  );
   return response.data;
 };
 

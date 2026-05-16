@@ -3,17 +3,25 @@ Gallery endpoint for browsing images
 """
 
 import json
+import logging
+from typing import Literal, Optional
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
-from typing import Optional
 
+from find_api.core.config import settings
 from find_api.core.database import get_db
+from find_api.core.queue import get_task_queue
 from find_api.core.storage import get_file_url, delete_file
 from find_api.models.media import Media
 from find_api.models.cluster import Cluster
+from find_api.workers.jobs import analyze_image
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+GalleryStatus = Literal["pending", "processing", "indexed", "failed"]
 
 
 def normalize_metadata(value):
@@ -32,7 +40,10 @@ def normalize_metadata(value):
 def get_gallery(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    status: Optional[str] = None,
+    status: Optional[GalleryStatus] = Query(
+        None,
+        description="Filter by processing status",
+    ),
     liked: Optional[bool] = None,
     db: Session = Depends(get_db),
 ):
@@ -168,6 +179,48 @@ def toggle_like(media_id: int, db: Session = Depends(get_db)):
     db.refresh(media)
 
     return {"id": media.id, "liked": media.liked}
+
+
+@router.post("/image/{media_id}/reprocess")
+def reprocess_image(media_id: int, db: Session = Depends(get_db)):
+    """
+    Reset a media record to pending and re-enqueue analysis.
+
+    Allowed for:
+    - Images with status ``failed``
+    - Images with status ``indexed`` that have incomplete metadata (no caption)
+    """
+    media = db.query(Media).filter(Media.id == media_id).first()
+    if not media:
+        raise HTTPException(404, "Image not found")
+
+    metadata = normalize_metadata(media.metadata_json)
+    is_indexed_incomplete = media.status == "indexed" and not metadata.get("caption")
+
+    if media.status != "failed" and not is_indexed_incomplete:
+        raise HTTPException(
+            400,
+            "Reprocess is only available for failed images or indexed images with incomplete metadata.",
+        )
+
+    media.status = "pending"
+    media.error_message = None
+    media.processed_at = None
+
+    try:
+        job = get_task_queue().enqueue(
+            analyze_image, media.id, job_timeout=settings.WORKER_TIMEOUT
+        )
+        db.commit()
+    except Exception as exc:  # noqa: BLE001
+        db.rollback()
+        raise HTTPException(
+            503, "Reprocess queue is unavailable. Please retry."
+        ) from exc
+
+    logger.info("Requeued analysis for media %s (job %s)", media.id, job.id)
+
+    return {"media_id": media_id, "job_id": job.id, "status": "queued"}
 
 
 @router.delete("/image/{media_id}")
