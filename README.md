@@ -64,6 +64,10 @@ FastAPI API
 
 ![Clusters](docs/assets/clusters.png)
 
+## Demo-GIF
+
+![Demo](docs/assets/demo.gif)
+
 ## GSSoC'26 contributors
 
 This project is open for **GSSoC'26** contributions.
