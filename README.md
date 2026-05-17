@@ -52,23 +52,23 @@ FastAPI API
 
 ### Upload
 
-![Upload](docs/assets/upload.png)
+![Upload](docs/assets/upload.webp)
 
 ### Gallery
 
-![Gallery](docs/assets/gallery.png)
+![Gallery](docs/assets/gallery.webp)
 
 ### Search
 
-![Search](docs/assets/search.png)
+![Search](docs/assets/search.webp)
 
 ### Clusters
 
-![Clusters](docs/assets/clusters.png)
+![Clusters](docs/assets/cluster.webp)
 
-## Demo-GIF
+## Delete
 
-![Demo](docs/assets/demo.gif)
+![Demo](docs/assets/delete.webp)
 
 ## GSSoC'26 contributors
 
