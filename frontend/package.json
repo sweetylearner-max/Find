@@ -43,12 +43,15 @@
     "jsdom": "^26.1.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": [
-      "sharp"
-    ],
-    "allowedDeprecatedVersions": {},
-    "allowBuild": [
-      "sharp"
-    ]
+  "onlyBuiltDependencies": [
+    "sharp"
+  ],
+  "allowedDeprecatedVersions": {},
+  "allowBuild": [
+    "sharp"
+  ],
+  "approvedBuilds": {
+    "sharp": true
   }
+}
 }
