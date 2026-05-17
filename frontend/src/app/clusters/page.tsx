@@ -14,6 +14,7 @@ import {
   getClusters,
   getJobStatus,
   triggerClustering,
+  extractErrorMessage,
 } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/media";
 
@@ -82,7 +83,9 @@ export default function ClustersPage() {
     }
 
     if (clusterJobQuery.data.status === "finished") {
-      toast.success("Clustering finished. The page has been refreshed.");
+      const resultData = clusterJobQuery.data.result as { message?: string } | undefined;
+      const message = resultData?.message || "Clustering finished. The page has been refreshed.";
+      toast.success(message);
       queryClient.invalidateQueries({ queryKey: ["clusters"] });
       setClusterJobId(null);
     }
@@ -103,8 +106,8 @@ export default function ClustersPage() {
           : "Clustering is already queued or running",
       );
     },
-    onError: () => {
-      toast.error("Failed to start clustering");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Failed to start clustering"));
     },
   });
 

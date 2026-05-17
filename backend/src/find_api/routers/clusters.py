@@ -105,11 +105,24 @@ def get_cluster_detail(cluster_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/cluster/run")
-def trigger_clustering():
+def trigger_clustering(db: Session = Depends(get_db)):
     """
     Manually trigger clustering job
 
     Returns:
         Job information
     """
+    from find_api.core.config import settings
+    
+    indexed_count = db.query(Media).filter(Media.status == "indexed", Media.vector.isnot(None)).count()
+    if indexed_count < settings.MIN_CLUSTER_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": f"Not enough indexed images for clustering (found {indexed_count}, need at least {settings.MIN_CLUSTER_SIZE}).",
+                "current_count": indexed_count,
+                "required_minimum": settings.MIN_CLUSTER_SIZE
+            }
+        )
+        
     return enqueue_clustering_job(reason="manual")
