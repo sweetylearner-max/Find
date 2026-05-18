@@ -29,7 +29,7 @@ export default function RootLayout({
                   href="/"
                   className="group flex shrink-0 items-center gap-3 text-2xl font-semibold text-[color:var(--near-white)] transition-colors hover:opacity-90"
                 >
-                  <span className="relative grid h-8 w-8 place-items-center rounded-md border border-[var(--frost)] bg-white dark:bg-[color:var(--frost-soft)] p-1 shadow-sm transition-transform group-hover:scale-105">
+                  <span className="relative grid h-8 w-8 place-items-center rounded-md border border-[var(--frost)] bg-[color:var(--near-white)] p-1 shadow-sm transition-transform group-hover:scale-105 dark:bg-[color:var(--frost-soft)]">
                     <Image
                       src="/Find-Logo.svg"
                       alt=""
