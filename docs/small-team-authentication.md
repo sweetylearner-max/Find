@@ -30,7 +30,7 @@ Create an Instance (admin flows)
 Join an Instance (user flows)
 - A user clicks "Join an Instance" and enters either an invite code or a shareable link.
 - They submit a username + password and an optional display name.
-- The instance creates a join request which the admin reviews and approves or denies (or if invite is pre-approved, account is created automatically).
+- The backend creates a join request which the admin reviews and approves or denies (or if invite is pre-approved, account is created automatically).
 - Once approved, the user can sign in and interact with the shared instance.
 
 ## Authentication & Accounts
@@ -48,7 +48,33 @@ Notes:
 - Sessions can be short-lived tokens/cookies served by the local backend.
 - Keep default instance mode as single-user if no admin action taken.
 
-## Data & Metadata changes
+## Authentication Architecture Alternatives
+
+The authentication architecture for Find should prioritize local-first deployments, lightweight operational requirements, and minimal external dependencies. The following approaches were evaluated for small-team shared-instance deployments.
+
+| Approach | Local-First Fit | Operational Complexity | Offline Compatibility | Dependency Footprint | Migration / Maintenance Risk |
+|---|---|---|---|---|---|
+| Better Auth | Good | Moderate | Good | Moderate | Moderate |
+| Auth.js | Moderate | Moderate-to-High | Limited in some flows | Higher | Moderate |
+| Backend-Owned Authentication | Excellent | Low | Excellent | Minimal | Low |
+
+### Better Auth
+
+Better Auth provides a modern self-hosted authentication approach with session handling and extensibility. It aligns reasonably well with self-hosted deployments, but may still introduce unnecessary abstraction and operational overhead for small trusted deployments.
+
+### Auth.js
+
+Auth.js provides a mature authentication ecosystem and strong OAuth support, but it is more heavily oriented toward web-platform and SaaS-oriented authentication flows. Many of its strengths are less relevant for Find’s local-first deployment model.
+
+### Backend-Owned Authentication
+
+A lightweight backend-owned authentication system aligns most closely with Find’s local-first philosophy. It minimizes dependency overhead, avoids mandatory cloud identity integrations, preserves offline compatibility, and keeps operational complexity intentionally small for trusted small-team deployments.
+
+### Recommended Direction
+
+For trusted household and small-team deployments, a lightweight backend-owned authentication model is the preferred direction. This approach preserves Find’s self-hosted architecture while avoiding unnecessary SaaS-oriented authentication complexity.
+
+## Data & Metadata Changes
 
 - Add `users` table as above.
 - Update `media` table to include `uploader_user_id` (nullable) to record which authenticated user uploaded the media.
@@ -85,6 +111,55 @@ Notes:
 - Rate-limit join attempts and signups.
 - Store password hashes with a strong algorithm (bcrypt/argon2) and a proper work factor.
 - Do not send any secrets in clear text over logs or email.
+
+## Threat Model
+
+The shared-instance deployment model introduces a small but important trust boundary between the admin-hosted infrastructure and authenticated users accessing the instance.
+
+### Protected Assets
+
+The following assets should be protected:
+
+- locally stored media files,
+- metadata and embeddings,
+- authentication credentials,
+- invite tokens,
+- user session tokens,
+- audit and deletion records.
+
+### Trust Boundaries
+
+The architecture assumes:
+
+- the admin controls the hosting infrastructure,
+- authenticated users are trusted but not fully unrestricted,
+- instance sharing is opt-in,
+- public exposure remains disabled unless explicitly configured by the admin.
+
+### Potential Threat Actors
+
+Potential threat actors may include:
+
+- unauthorized local-network users,
+- internet attackers targeting exposed instances,
+- compromised or leaked invite links,
+- malicious authenticated users,
+- compromised admin devices,
+- weak-password attacks against exposed deployments.
+
+### Mitigations
+
+The proposed architecture mitigates these risks through:
+
+- invite-based onboarding,
+- admin approval workflows,
+- strong password hashing,
+- short-lived invite tokens,
+- rate limiting,
+- optional HTTPS/TLS deployment guidance,
+- uploader metadata tracking,
+- deletion approval workflows,
+- and minimal public exposure by default.
 
 ## Admin UX & Operational notes
 
