@@ -5,11 +5,13 @@ Main FastAPI application entry point
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import asyncio
 import logging
 
 from find_api.core.database import init_db
+from find_api.core.recovery import run_analysis_recovery_loop
 from find_api.core.storage import init_storage
-from find_api.routers import upload, gallery, search, clusters, status, cluster
+from find_api.routers import upload, gallery, search, clusters, status, cluster, people
 
 # Configure logging
 logging.basicConfig(
@@ -41,9 +43,15 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing MinIO storage...")
     init_storage()
 
+    recovery_task = asyncio.create_task(run_analysis_recovery_loop())
+
     logger.info("Find API started successfully!")
 
-    yield
+    try:
+        yield
+    finally:
+        recovery_task.cancel()
+        await asyncio.gather(recovery_task, return_exceptions=True)
 
     logger.info("Shutting down Find API...")
 
@@ -77,6 +85,7 @@ app.include_router(search.router, prefix="/api", tags=["search"])
 app.include_router(clusters.router, prefix="/api", tags=["clusters"])
 app.include_router(cluster.router, prefix="/api", tags=["cluster-ops"])
 app.include_router(status.router, prefix="/api", tags=["status"])
+app.include_router(people.router, prefix="/api", tags=["people"])
 
 
 @app.get("/")

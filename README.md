@@ -34,19 +34,29 @@ See the mobile direction in [`docs/mobile-strategy.md`](./docs/mobile-strategy.m
 
 ## Architecture
 
-```text
-Next.js frontend
-    |
-    v
-FastAPI API
-    |
-    +--> PostgreSQL + pgvector  (metadata, embeddings, clusters)
-    +--> MinIO                  (image object storage)
-    +--> Redis + RQ             (background analysis and clustering jobs)
-            |
-            v
-        ML worker
-```
+![Architecture](docs/assets/architecture.png)
+
+## Screenshots
+
+### Upload
+
+![Upload](docs/assets/upload.webp)
+
+### Gallery
+
+![Gallery](docs/assets/gallery.webp)
+
+### Search
+
+![Search](docs/assets/search.webp)
+
+### Clusters
+
+![Clusters](docs/assets/cluster.webp)
+
+## Delete
+
+![Demo](docs/assets/delete.webp)
 
 ## GSSoC'26 contributors
 
@@ -54,7 +64,8 @@ This project is open for **GSSoC'26** contributions.
 
 - New contributors should start with the [GSSoC'26 Contributor Guide](./GSSOC_CONTRIBUTOR_GUIDE.md).
 - Start with issues labeled [`good first issue`](https://github.com/Abhash-Chakraborty/Find/labels/good%20first%20issue)
-- For medium/advanced work, check [`level:intermediate`](https://github.com/Abhash-Chakraborty/Find/issues?q=state%3Aopen%20label%3A%22level%3Aintermediate%22) and [`level:advanced`](https://github.com/Abhash-Chakraborty/Find/issues?q=state%3Aopen%20label%3A%22level%3Aadvanced%22)
+- Beginner-friendly work may also use [`level:beginner`](https://github.com/Abhash-Chakraborty/Find/issues?q=state%3Aopen%20label%3A%22level%3Abeginner%22)
+- For bigger work, check [`level:intermediate`](https://github.com/Abhash-Chakraborty/Find/issues?q=state%3Aopen%20label%3A%22level%3Aintermediate%22), [`level:advanced`](https://github.com/Abhash-Chakraborty/Find/issues?q=state%3Aopen%20label%3A%22level%3Aadvanced%22), and [`level:critical`](https://github.com/Abhash-Chakraborty/Find/issues?q=state%3Aopen%20label%3A%22level%3Acritical%22)
 - Look for priority queue items via [`help wanted`](https://github.com/Abhash-Chakraborty/Find/labels/help%20wanted)
 - Follow the contribution rules in [CONTRIBUTING.md](./CONTRIBUTING.md)
 
@@ -72,8 +83,8 @@ Services:
 
 - Frontend: `http://localhost:3000`
 - Backend API: `http://localhost:8000`
-- MinIO API: `http://localhost:9000`
-- MinIO console: `http://localhost:9001`
+- MinIO API: `http://localhost:9200`
+- MinIO console: `http://localhost:9201`
 
 Notes:
 
@@ -158,19 +169,20 @@ uv run ruff check .
 uv run ruff format --check .
 uv run pytest tests/ -v
 ```
+
 ## ML troubleshooting
 
 For debugging real caption generation, OCR extraction, embeddings, object detection, and semantic search quality issues, see:
 
-* [Real ML Troubleshooting Guide](docs/REAL_ML_TROUBLESHOOTING.md)
+- [Real ML Troubleshooting Guide](docs/REAL_ML_TROUBLESHOOTING.md)
 
 The guide covers:
 
-* Full ML mode vs mock mode
-* Worker log inspection
-* Caption/OCR debugging
-* GPU and model-loading issues
-* Manual validation workflows for search quality
+- Full ML mode vs mock mode
+- Worker log inspection
+- Caption/OCR debugging
+- GPU and model-loading issues
+- Manual validation workflows for search quality
 
 ## Core flow
 
@@ -180,6 +192,21 @@ The guide covers:
 4. Worker extracts metadata and generates embeddings.
 5. Backend queues clustering once indexing succeeds.
 6. Frontend polls job status and updates gallery/search/cluster views.
+
+## Clustering prerequisites and expected behavior
+
+Clustering only works on indexed images with generated embeddings. Images must complete the indexing pipeline successfully before they become eligible for clustering.
+
+The current clustering pipeline requires at least `MIN_CLUSTER_SIZE` indexed images with embeddings before stable clusters can be formed. By default, the current minimum cluster size is `2`.
+
+A clustering run may still complete successfully without producing any clusters. In those cases, the worker may return messages such as:
+
+- `Not enough indexed images for clustering`
+- `No stable clusters found`
+
+`No stable clusters found` is a valid outcome and does not necessarily indicate a system failure. It can occur when the indexed dataset is too small or when images are not visually similar enough to form meaningful groups.
+
+Repeated clustering attempts without adding or reindexing images are unlikely to produce different results and may unnecessarily consume worker resources.
 
 ## Key endpoints
 
@@ -199,7 +226,47 @@ The guide covers:
 
 `.env.example` reflects the current stack. Keep `EMBEDDING_DIM` aligned with the selected CLIP/SigLIP model and pgvector dimensions.
 
+### Worker and clustering variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `WORKER_TIMEOUT` | `600` | Seconds before RQ kills a stalled job. Raise this when processing large batches or running real ML inference; the default is sufficient for mock mode. |
+| `MIN_CLUSTER_SIZE` | `2` | Minimum number of images HDBSCAN needs to form a cluster. Lower values produce more, smaller clusters; higher values produce fewer, broader ones. Tune after indexing a representative sample. |
+| `MIN_SAMPLES` | `1` | Controls how conservative HDBSCAN is about noise. Higher values cause more images to be labelled unclustered (`-1`). Keep at `1` for small libraries. |
+| `CLUSTERING_BACKEND` | `auto` | Clustering algorithm to use. `hdbscan` is the default and works well for variable-density image sets. Switch only if you are experimenting with an alternative backend. |
+
+These only affect the worker and the `/api/cluster/run` path. Frontend and API behaviour is unchanged by them.
+
 ## Troubleshooting
+
+### Images stuck in processing
+
+When an image is marked as `processing`, the upload has been accepted and queued for background analysis by the worker. The worker reads the file from MinIO, extracts metadata, generates embeddings, updates the database row, and then queues clustering.
+
+If an image looks stuck:
+
+- Confirm the stack is running:
+
+```bash
+docker compose ps
+```
+
+- Inspect the worker logs first:
+
+```bash
+docker compose logs --tail=200 worker
+```
+
+- Check the API logs for upload, storage, or queue errors:
+
+```bash
+docker compose logs --tail=200 api
+```
+
+- Confirm Redis and MinIO are healthy in `docker compose ps`.
+- Do not retry or manually reprocess while the image is still `processing`.
+- Retry/reprocess only after the item has moved to `failed`.
+- `WORKER_TIMEOUT` controls the analysis job timeout. After the recovery flow marks an abandoned item as `failed`, the existing retry/reprocess action can be used.
 
 ### Slow first run
 
@@ -240,30 +307,10 @@ docker compose -f docker-compose.light.yml up --build
 
 ## Contribution Workflow
 
-```text
-1. Find an issue          →  github.com/Abhash-Chakraborty/Find/issues
-        ↓
-2. Comment to get assigned
-        ↓
-3. Fork & create branch   →  git checkout -b feat/your-feature
-        ↓
-4. Make your changes
-        ↓
-5. Run quality checks
-   Frontend:  cd frontend && pnpm check && pnpm build
-   Backend:   cd backend && uv run ruff check . && uv run pytest tests/
-        ↓
-6. Commit & push          →  git push origin feat/your-feature
-        ↓
-7. Open PR & link issue   →  Closes #(issue number)
-        ↓
-8. Wait for review ✅
-```
+![Contribution Workflow](docs/assets/contribution.png)
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for full details.
-Labels: [`good first issue`](https://github.com/Abhash-Chakraborty/Find/labels/good%20first%20issue) · [`level:intermediate`](https://github.com/Abhash-Chakraborty/Find/issues?q=state%3Aopen%20label%3A%22level%3Aintermediate%22) · [`help wanted`](https://github.com/Abhash-Chakraborty/Find/labels/help%20wanted)
-
-
+Labels: [`good first issue`](https://github.com/Abhash-Chakraborty/Find/labels/good%20first%20issue) · [`level:beginner`](https://github.com/Abhash-Chakraborty/Find/issues?q=state%3Aopen%20label%3A%22level%3Abeginner%22) · [`level:intermediate`](https://github.com/Abhash-Chakraborty/Find/issues?q=state%3Aopen%20label%3A%22level%3Aintermediate%22) · [`level:advanced`](https://github.com/Abhash-Chakraborty/Find/issues?q=state%3Aopen%20label%3A%22level%3Aadvanced%22) · [`level:critical`](https://github.com/Abhash-Chakraborty/Find/issues?q=state%3Aopen%20label%3A%22level%3Acritical%22) · [`help wanted`](https://github.com/Abhash-Chakraborty/Find/labels/help%20wanted)
 
 ## Contact and support
 

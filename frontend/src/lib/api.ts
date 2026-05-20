@@ -103,6 +103,7 @@ export interface ClusterInfo {
 export interface ClustersResponse {
   clusters: ClusterInfo[];
   total: number;
+  min_cluster_size?: number;
 }
 
 export interface ClusterDetail {
@@ -142,6 +143,7 @@ export interface SearchResponse {
 export interface JobStatus {
   job_id: string;
   status: "queued" | "started" | "finished" | "failed";
+  stage?: string;
   created_at?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
@@ -289,6 +291,13 @@ export function extractErrorMessage(error: unknown, fallback: string): string {
     if (typeof data?.detail === "string" && data.detail.trim()) {
       return data.detail.trim();
     }
+    if (
+      typeof data?.detail === "object" &&
+      typeof data.detail?.message === "string" &&
+      data.detail.message.trim()
+    ) {
+      return data.detail.message.trim();
+    }
     if (typeof data?.message === "string" && data.message.trim()) {
       return data.message.trim();
     }
@@ -301,3 +310,54 @@ export function extractErrorMessage(error: unknown, fallback: string): string {
   }
   return fallback;
 }
+
+// ─── People / Face Recognition API ───────────────────────────────────────────
+
+export interface PersonItem {
+  id: number;
+  name: string | null;
+  face_count: number;
+  sample_media_ids: number[];
+}
+
+export interface PersonImage {
+  media_id: number;
+  filename: string;
+  faces: {
+    bounding_box: { x1: number; y1: number; x2: number; y2: number };
+    confidence: number;
+  }[];
+}
+
+export interface PersonImagesResponse {
+  person_id: number;
+  person_name: string | null;
+  images: PersonImage[];
+}
+
+export const getPeople = async (): Promise<PersonItem[]> => {
+  const response = await api.get<PersonItem[]>("/api/people");
+  return response.data;
+};
+
+export const getPersonImages = async (
+  personId: number,
+): Promise<PersonImagesResponse> => {
+  const response = await api.get<PersonImagesResponse>(
+    `/api/people/${personId}/images`,
+  );
+  return response.data;
+};
+
+export const updatePersonName = async (
+  personId: number,
+  name: string,
+): Promise<{ id: number; name: string; message: string }> => {
+  const response = await api.patch(`/api/people/${personId}`, { name });
+  return response.data;
+};
+
+export const triggerFaceClustering = async () => {
+  const response = await api.post("/api/people/cluster");
+  return response.data;
+};

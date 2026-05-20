@@ -3,21 +3,39 @@ Image processing utilities for worker jobs
 """
 
 import logging
+from collections.abc import Callable
+from typing import Any, Dict, List
+
 import numpy as np
 from PIL import Image
-from typing import Dict, Any, List
 
 from find_api.core.config import settings
 from find_api.ml.mock_embedder import get_mock_embedder
 
 logger = logging.getLogger(__name__)
 
+PERSON_OBJECT_LABELS = {
+    "person",
+    "people",
+    "human",
+    "man",
+    "woman",
+    "boy",
+    "girl",
+    "face",
+}
 
-def extract_image_metadata(image: Image.Image) -> Dict[str, Any]:
+
+def extract_image_metadata(
+    image: Image.Image,
+    on_stage: Callable[[str], None] | None = None,
+) -> Dict[str, Any]:
     """
     Run all ML models to extract metadata from image
     """
     if settings.ML_MODE.lower() == "mock":
+        if on_stage:
+            on_stage("generating mock metadata")
         logger.info("Using mock image metadata extractor")
         return {
             "caption": f"Mock caption for {image.width}x{image.height} image",
@@ -31,6 +49,8 @@ def extract_image_metadata(image: Image.Image) -> Dict[str, Any]:
 
     # 1. Object Detection
     try:
+        if on_stage:
+            on_stage("detecting objects")
         logger.info("Running object detection...")
         from find_api.ml.object_detector import get_object_detector
 
@@ -44,6 +64,8 @@ def extract_image_metadata(image: Image.Image) -> Dict[str, Any]:
 
     # 2. Image Captioning
     try:
+        if on_stage:
+            on_stage("generating caption")
         logger.info("Generating caption...")
         from find_api.ml.captioner import get_image_captioner
 
@@ -57,6 +79,8 @@ def extract_image_metadata(image: Image.Image) -> Dict[str, Any]:
 
     # 3. OCR Text Extraction
     try:
+        if on_stage:
+            on_stage("running OCR")
         logger.info("Extracting text...")
         from find_api.ml.ocr import get_ocr_extractor
 
@@ -118,3 +142,96 @@ def generate_hybrid_embedding(
     except Exception as e:
         logger.error(f"CLIP embedding failed: {e}")
         raise
+
+
+def has_person_object(metadata: Dict[str, Any]) -> bool:
+    """Return true when object detection found a person-like object."""
+    objects = metadata.get("objects") or []
+
+    for obj in objects:
+        if not isinstance(obj, dict):
+            continue
+
+        label = (
+            str(obj.get("class") or obj.get("name") or obj.get("label") or "")
+            .strip()
+            .lower()
+        )
+        if not label:
+            continue
+
+        if label in PERSON_OBJECT_LABELS:
+            return True
+
+    return False
+
+
+def detect_and_store_faces(image: Image.Image, media_id: int, db) -> int:
+    """
+    Detect faces in image and store them in the database.
+    Returns the number of faces detected.
+
+    In mock mode: skips detection entirely (no model needed).
+    In real mode: uses InsightFace antelopev2 to detect faces.
+    """
+    # Import here to avoid circular imports
+    from find_api.models.face import Face
+
+    # Mock mode - skip face detection entirely
+    # This keeps light/mock mode working without downloading face models
+    if settings.ML_MODE.lower() == "mock":
+        logger.info("Mock mode: skipping face detection for media %s", media_id)
+        return 0
+
+    # Real mode - run actual face detection
+    try:
+        logger.info("Running face detection for media %s...", media_id)
+        from find_api.ml.face_detector import get_face_detector
+
+        detector = get_face_detector()
+        faces = detector.detect_faces(image)
+
+        db.query(Face).filter(Face.media_id == media_id).delete(
+            synchronize_session=False
+        )
+
+        if not faces:
+            db.commit()
+            logger.info("No faces detected in media %s", media_id)
+            return 0
+
+        # Save each detected face to the database
+        stored_count = 0
+        for face_data in faces:
+            bbox = face_data.get("bbox")
+            embedding = face_data.get("embedding")
+            confidence = face_data.get("confidence")
+            if bbox is None or embedding is None or confidence is None:
+                logger.warning("Skipping malformed face payload for media %s", media_id)
+                continue
+
+            db.add(
+                Face(
+                    media_id=media_id,
+                    bounding_box=bbox,
+                    embedding=embedding,
+                    confidence=confidence,
+                    # person_id is None for now - set after clustering
+                )
+            )
+            stored_count += 1
+
+        if stored_count == 0:
+            db.commit()
+            logger.info("No valid faces to store for media %s", media_id)
+            return 0
+
+        db.commit()
+        logger.info("Stored %s faces for media %s", stored_count, media_id)
+        return stored_count
+
+    except Exception:
+        logger.exception("Face detection failed for media %s", media_id)
+        db.rollback()
+        # Don't raise - face detection failure should not fail the whole job
+        return 0
