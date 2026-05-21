@@ -37,6 +37,20 @@ confidence.
 Both are authenticated encryption with associated data (AEAD) constructions. Either is acceptable
 for this use case. The differences relevant to Find are:
 
+**Required associated data (AAD):**
+
+Every vault blob encryption operation must supply AAD that binds the ciphertext to its database
+record and format. At minimum, the AAD must be the exact byte serialization of:
+
+- a fixed format/version string, for example `find-vault-v1`
+- `media_id`
+- `file_hash`
+
+This AAD is not encrypted, but it is authenticated by the AEAD tag. Decryption must reconstruct
+the identical AAD from trusted metadata and must reject the blob if authentication fails. This
+prevents an attacker with write access to the blob store from swapping encrypted blobs between
+records and having them still verify successfully.
+
 | Property | AES-256-GCM | ChaCha20-Poly1305 |
 | --- | --- | --- |
 | Hardware acceleration | Excellent on modern x86-64 with AES-NI | Not needed; fast in pure software |
