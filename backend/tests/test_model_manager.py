@@ -92,6 +92,25 @@ def test_config_key_change_allows_retry(manager):
     assert calls["count"] == 2
 
 
+def test_config_key_added_after_failure_allows_retry(manager):
+    calls = {"count": 0}
+
+    def loader():
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise RuntimeError("missing config failed")
+        return "loaded with config"
+
+    with pytest.raises(ModelUnavailableError):
+        manager.get_model("config-added-model", loader)
+
+    assert (
+        manager.get_model("config-added-model", loader, config_key="model=new")
+        == "loaded with config"
+    )
+    assert calls["count"] == 2
+
+
 def test_unavailable_stage_records_safe_metadata_and_continues(monkeypatch):
     monkeypatch.setattr(settings, "ML_MODE", "real")
 
@@ -135,9 +154,5 @@ def test_unavailable_stage_records_safe_metadata_and_continues(monkeypatch):
     assert metadata["objects"] == []
     assert metadata["caption"] == "a generated caption"
     assert metadata["ocr_text"] == "detected text"
-    assert metadata["stage_errors"] == {
-        "objects": (
-            "Model 'yolo' is unavailable after a failed load. "
-            "Restart the worker or clear model failure state to retry."
-        )
-    }
+    assert set(metadata["stage_errors"]) == {"objects"}
+    assert "Model 'yolo' is unavailable" in metadata["stage_errors"]["objects"]

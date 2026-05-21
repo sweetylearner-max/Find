@@ -96,7 +96,7 @@ class ModelManager:
         """
         if name in self.unavailable_models:
             failure = self.unavailable_models[name]
-            if failure.config_key is not None and failure.config_key != config_key:
+            if failure.config_key != config_key:
                 logger.info(
                     "Retrying unavailable model %s because configuration changed",
                     name,
