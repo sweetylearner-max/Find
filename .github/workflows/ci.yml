@@ -91,3 +91,31 @@ jobs:
     # Enforce consistent style — don't waste review time on whitespace
     - run: uv run ruff format --check .
       if: steps.changes.outputs.backend == 'true'
+
+    # Smoke-import the FastAPI app to catch broken imports or bad config before runtime.
+    - name: Backend import smoke check
+      if: steps.changes.outputs.backend == 'true'
+      run: ML_MODE=mock uv run python -c "from find_api.main import app; print('smoke OK:', app.title)"
+
+  compose-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Only validate compose files when they (or the CI workflow) actually changed
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            compose:
+              - 'docker-compose.yml'
+              - 'docker-compose.light.yml'
+              - '.github/workflows/ci.yml'
+
+      - name: Validate docker-compose.yml
+        if: steps.changes.outputs.compose == 'true'
+        run: docker compose config --quiet
+
+      - name: Validate docker-compose.light.yml
+        if: steps.changes.outputs.compose == 'true'
+        run: docker compose -f docker-compose.light.yml config --quiet
