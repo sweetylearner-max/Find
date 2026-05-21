@@ -101,6 +101,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       # Only validate compose files when they (or the CI workflow) actually changed
       - uses: dorny/paths-filter@v3
