@@ -16,6 +16,7 @@ from find_api.core.model_manager import get_model_manager
 from find_api.core.config import settings
 from find_api.models.media import Media
 from find_api.utils.exif import extract_exif_data
+from find_api.utils.errors import sanitize_error
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,7 @@ def analyze_image(media_id: int):
 
     db = SessionLocal()
     media = None
+    metadata = None
 
     try:
         set_stage(job, "loading image")
@@ -104,7 +106,20 @@ def analyze_image(media_id: int):
 
         set_stage(job, "generating embedding")
 
-        media.vector = generate_hybrid_embedding(image, metadata)
+        try:
+            media.vector = generate_hybrid_embedding(image, metadata)
+            if "stage_status" in metadata:
+                metadata["stage_status"]["embedding"] = {
+                    "status": "success",
+                    "error": None,
+                }
+        except Exception as e:
+            if "stage_status" in metadata:
+                metadata["stage_status"]["embedding"] = {
+                    "status": "failed",
+                    "error": sanitize_error(e),
+                }
+            raise
 
         set_stage(job, "indexing complete")
 
@@ -154,12 +169,15 @@ def analyze_image(media_id: int):
         logger.error(f"Failed to process media {media_id}: {e}")
         db.rollback()
 
+        safe_error = sanitize_error(e)
         set_stage(job, "failed")
-        set_error(job, str(e))
+        set_error(job, safe_error)
 
         if media:
             media.status = "failed"
-            media.error_message = str(e)
+            media.error_message = safe_error
+            if metadata:
+                media.metadata_json = metadata
             db.commit()
 
         raise

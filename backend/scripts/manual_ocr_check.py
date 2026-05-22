@@ -12,6 +12,7 @@ from pathlib import Path
 
 def check_version():
     """Verify PaddleOCR version."""
+    # pyrefly: ignore [missing-import]
     import paddleocr
 
     version = paddleocr.__version__

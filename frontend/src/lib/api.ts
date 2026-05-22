@@ -13,6 +13,16 @@ export const api: AxiosInstance = axios.create({
 
 // Types
 export type MediaStatus = "pending" | "processing" | "indexed" | "failed";
+export type AnalysisStageName =
+  | "object_detection"
+  | "captioning"
+  | "ocr"
+  | "embedding";
+
+export type AnalysisStageStatus = {
+  status: "pending" | "success" | "failed";
+  error: string | null;
+};
 
 export interface MediaItem {
   id: number;
@@ -58,6 +68,7 @@ export interface MediaDetail extends MediaItem {
       confidence: number;
       bbox: { x: number; y: number; width: number; height: number };
     }>;
+    stage_status?: Partial<Record<AnalysisStageName, AnalysisStageStatus>>;
   };
   exif?: Record<string, string>;
   error?: string | null;

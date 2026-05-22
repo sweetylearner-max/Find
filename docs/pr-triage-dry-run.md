@@ -83,5 +83,6 @@ Expected:
 The workflow is scoped to minimal required permissions:
 
 - `issues: write`
+- `pull-requests: write`
 
 No source checkout is used, and no build/test jobs run in this workflow.
