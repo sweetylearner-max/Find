@@ -108,6 +108,72 @@ class TestGalleryResponseShape:
         assert response.status_code == 307
         assert response.headers["location"] == "http://fake/images/test/legacy.jpg"
 
+    def test_backfill_missing_thumbnails_enqueues_thumbnail_only_jobs(self, client, db):
+        existing = _seed(db, filename="existing.jpg", status="indexed")
+        missing_a = _seed(db, filename="missing-a.jpg", status="indexed")
+        missing_b = _seed(db, filename="missing-b.jpg", status="indexed")
+        missing_a.thumbnail_key = None
+        missing_b.thumbnail_key = None
+        db.commit()
+
+        class FakeQueue:
+            def __init__(self):
+                self.calls = []
+
+            def enqueue(self, func, media_id, **kwargs):
+                self.calls.append((func, media_id, kwargs))
+
+                class FakeJob:
+                    id = f"job-{media_id}"
+
+                return FakeJob()
+
+        queue = FakeQueue()
+        with patch("find_api.routers.gallery.get_task_queue", return_value=queue):
+            response = client.post("/api/thumbnails/backfill")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["queued"] == 2
+        assert body["remaining"] == 0
+        assert set(body["job_ids"]) == {f"job-{missing_a.id}", f"job-{missing_b.id}"}
+        assert {call[1] for call in queue.calls} == {missing_a.id, missing_b.id}
+        assert existing.id not in {call[1] for call in queue.calls}
+
+    def test_backfill_missing_thumbnails_respects_limit(self, client, db):
+        for index in range(3):
+            media = _seed(db, filename=f"missing-{index}.jpg", status="indexed")
+            media.thumbnail_key = None
+        db.commit()
+
+        class FakeQueue:
+            def enqueue(self, _func, media_id, **_kwargs):
+                class FakeJob:
+                    id = f"job-{media_id}"
+
+                return FakeJob()
+
+        with patch("find_api.routers.gallery.get_task_queue", return_value=FakeQueue()):
+            response = client.post("/api/thumbnails/backfill?limit=2")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["queued"] == 2
+        assert body["remaining"] == 1
+
+    def test_backfill_missing_thumbnails_noops_when_complete(self, client, db):
+        _seed(db, filename="existing.jpg", status="indexed")
+
+        response = client.post("/api/thumbnails/backfill")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "queued": 0,
+            "remaining": 0,
+            "job_ids": [],
+            "message": "No missing thumbnails found.",
+        }
+
     def test_indexed_item_includes_metadata(self, client, db):
         _seed(
             db,

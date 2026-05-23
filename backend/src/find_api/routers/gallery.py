@@ -16,7 +16,7 @@ from find_api.core.queue import get_task_queue
 from find_api.core.storage import get_file_url, delete_file
 from find_api.models.media import Media
 from find_api.models.cluster import Cluster
-from find_api.workers.jobs import analyze_image
+from find_api.workers.jobs import analyze_image, generate_thumbnail_for_media
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +209,61 @@ def get_image_thumbnail(media_id: int, db: Session = Depends(get_db)):
         raise HTTPException(500, "Could not generate image URL")
 
     return RedirectResponse(url=url)
+
+
+@router.post("/thumbnails/backfill")
+def backfill_missing_thumbnails(
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+):
+    """
+    Enqueue thumbnail-only jobs for existing images that do not have thumbnails.
+
+    This is intentionally separate from reprocess so older libraries can get
+    lightweight thumbnails without rerunning captions, detection, embeddings, or
+    clustering.
+    """
+    media_list = (
+        db.query(Media)
+        .filter(Media.thumbnail_key.is_(None))
+        .order_by(desc(Media.created_at))
+        .limit(limit)
+        .all()
+    )
+
+    if not media_list:
+        return {
+            "queued": 0,
+            "remaining": 0,
+            "job_ids": [],
+            "message": "No missing thumbnails found.",
+        }
+
+    queue = get_task_queue("low")
+    job_ids = []
+    for media in media_list:
+        job = queue.enqueue(
+            generate_thumbnail_for_media,
+            media.id,
+            job_timeout=settings.WORKER_TIMEOUT,
+            result_ttl=300,
+        )
+        job_ids.append(job.id)
+
+    remaining = (
+        db.query(Media)
+        .filter(
+            Media.thumbnail_key.is_(None), Media.id.notin_([m.id for m in media_list])
+        )
+        .count()
+    )
+
+    return {
+        "queued": len(job_ids),
+        "remaining": remaining,
+        "job_ids": job_ids,
+        "message": "Thumbnail backfill queued.",
+    }
 
 
 @router.post("/image/{media_id}/like")
