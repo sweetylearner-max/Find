@@ -1,5 +1,11 @@
 """
-OCR using PaddleOCR (CPU optimized)
+OCR using PaddleOCR (CPU optimized).
+
+The supported runtime is PaddleOCR 3.x with PaddlePaddle 3.2.x. PaddleOCR 3.x
+uses the ``predict`` API and pipeline flags such as
+``use_textline_orientation``. A small PaddleOCR 2.x fallback remains so older
+local environments fail less abruptly, but the lockfile should resolve the
+current 3.x stack.
 """
 
 from paddleocr import PaddleOCR

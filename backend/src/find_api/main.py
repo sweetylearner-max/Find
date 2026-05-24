@@ -17,6 +17,7 @@ from find_api.routers import (
     cluster,
     clusters,
     config,
+    feedback,
     gallery,
     people,
     search,
@@ -105,6 +106,7 @@ app.include_router(cluster.router, prefix="/api", tags=["cluster-ops"])
 app.include_router(status.router, prefix="/api", tags=["status"])
 app.include_router(config.router, prefix="/api", tags=["config"])
 app.include_router(people.router, prefix="/api", tags=["people"])
+app.include_router(feedback.router, tags=["feedback"])
 
 
 @app.get("/")
