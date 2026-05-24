@@ -1,0 +1,5 @@
+# Windsurf Instructions
+
+Follow the shared repository rules in `AGENTS.md` and the security rules in `docs/AGENT_SECURITY.md`.
+
+Keep this file as a thin Windsurf entry point. Update `AGENTS.md` or `docs/AGENT_SECURITY.md` instead of duplicating rules here.
