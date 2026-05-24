@@ -1,6 +1,11 @@
 "use client";
 
-import { InfiniteData, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  type InfiniteData,
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   Download,
   Eye,
@@ -320,7 +325,9 @@ function GalleryPageContent() {
       setDeletionError(null);
       await queryClient.cancelQueries({ queryKey: galleryQueryKey });
       const previousData =
-        queryClient.getQueryData<InfiniteData<GalleryResponse, number>>(galleryQueryKey);
+        queryClient.getQueryData<InfiniteData<GalleryResponse, number>>(
+          galleryQueryKey,
+        );
 
       queryClient.setQueryData<InfiniteData<GalleryResponse, number>>(
         galleryQueryKey,
