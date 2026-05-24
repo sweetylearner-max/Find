@@ -44,6 +44,7 @@ const renderWithClient = (ui: React.ReactElement) => {
 describe("Gallery card states (light mode)", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    document.documentElement.classList.remove("dark");
   });
 
   it("renders loading spinner while data is fetching", async () => {
@@ -114,12 +115,22 @@ describe("Gallery card states (light mode)", () => {
     // Normal card (id 1) should show image and no filled heart
     const card1Img = screen.getByAltText("image1.jpg");
     expect(card1Img).toBeInTheDocument();
+    expect(card1Img.closest("article")).toContainElement(
+      screen.getAllByLabelText("Status: Indexed")[0],
+    );
     const heartBtn1 = screen.getAllByLabelText("Like image")[0];
     expect(heartBtn1).toBeInTheDocument();
     // Liked card (id 3) should have filled heart
     const heartBtn3 = screen.getAllByLabelText("Unlike image")[0];
     expect(heartBtn3).toBeInTheDocument();
+    expect(heartBtn3.closest("article")).toContainElement(
+      screen.getAllByLabelText("Status: Indexed")[1],
+    );
     // Failed card (id 2) should show retry button
+    const card2Img = screen.getByAltText("image2.jpg");
+    expect(card2Img.closest("article")).toContainElement(
+      screen.getByLabelText("Status: Failed"),
+    );
     const retryBtn = screen.getByLabelText("Retry analysis");
     expect(retryBtn).toBeInTheDocument();
   });
