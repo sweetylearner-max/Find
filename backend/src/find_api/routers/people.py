@@ -11,6 +11,7 @@ from typing import List, Optional
 from find_api.core.database import get_db
 from find_api.core.config import settings
 from find_api.core.queue import get_task_queue
+from find_api.routers.gallery import build_thumbnail_url
 from find_api.models.face import Face
 from find_api.models.media import Media
 from find_api.models.person import Person
@@ -31,6 +32,7 @@ class PersonResponse(BaseModel):
     face_count: int
     # Sample image IDs to show thumbnails in the UI
     sample_media_ids: List[int]
+    thumbnail_url: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -55,6 +57,7 @@ class PersonImageResponse(BaseModel):
 
     media_id: int
     filename: str
+    thumbnail_url: Optional[str] = None
     faces: List[PersonImageFace]
 
 
@@ -73,18 +76,26 @@ def list_people(db: Session = Depends(get_db)):
     for person in persons:
         # Count how many faces belong to this person
         face_count = (
-            db.query(func.count(Face.id)).filter(Face.person_id == person.id).scalar()
+            db.query(func.count(Face.id))
+            .join(Media, Media.id == Face.media_id)
+            .filter(Face.person_id == person.id, Media.is_hidden.is_(False))
+            .scalar()
         )
 
         # Get up to 4 sample media IDs for thumbnail preview
         sample_faces = (
             db.query(Face.media_id)
+            .join(Media, Media.id == Face.media_id)
             .filter(Face.person_id == person.id)
+            .filter(Media.is_hidden.is_(False))
             .distinct()
             .limit(4)
             .all()
         )
         sample_media_ids = [f.media_id for f in sample_faces]
+        thumbnail_url = (
+            build_thumbnail_url(sample_media_ids[0]) if sample_media_ids else None
+        )
 
         result.append(
             PersonResponse(
@@ -92,6 +103,7 @@ def list_people(db: Session = Depends(get_db)):
                 name=person.name,
                 face_count=face_count,
                 sample_media_ids=sample_media_ids,
+                thumbnail_url=thumbnail_url,
             )
         )
 
@@ -119,7 +131,7 @@ def get_person_images(person_id: int, db: Session = Depends(get_db)):
             Face.confidence,
         )
         .join(Media, Media.id == Face.media_id)
-        .filter(Face.person_id == person_id)
+        .filter(Face.person_id == person_id, Media.is_hidden.is_(False))
         .order_by(Media.created_at.desc())
         .all()
     )
@@ -131,6 +143,7 @@ def get_person_images(person_id: int, db: Session = Depends(get_db)):
             images[row.media_id] = {
                 "media_id": row.media_id,
                 "filename": row.filename,
+                "thumbnail_url": build_thumbnail_url(row.media_id),
                 "faces": [],
             }
         images[row.media_id]["faces"].append(
