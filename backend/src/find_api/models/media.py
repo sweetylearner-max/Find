@@ -11,6 +11,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     text as sa_text,
+    Float,
 )
 from sqlalchemy.sql import func
 from pgvector.sqlalchemy import Vector
@@ -37,6 +38,7 @@ class Media(Base):
     liked = Column(
         Boolean, nullable=False, default=False, server_default=sa_text("false")
     )
+    ranking_boost = Column(Float, nullable=False, default=0.0, server_default="0")
 
     # Status tracking
     status = Column(String(50), default="pending", index=True)

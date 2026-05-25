@@ -18,6 +18,9 @@ from find_api.models.media import Media
 from find_api.utils.exif import extract_exif_data
 from find_api.utils.errors import sanitize_error
 
+from sqlalchemy import func
+from find_api.models.feedback import GeneralFeedback
+
 logger = logging.getLogger(__name__)
 
 # Start ML model cleanup for the worker process
@@ -341,6 +344,63 @@ def cluster_images():
 
     finally:
         clear_clustering_job_state()
+        db.close()
+
+    
+def process_feedback_ranking():
+    """
+    Background job to compute tiny ranking boosts
+    from accumulated local feedback.
+    """
+
+    db = SessionLocal()
+
+    try:
+        logger.info("Starting feedback ranking update...")
+
+        media_items = (
+            db.query(Media)
+            .filter(Media.status == "indexed")
+            .all()
+        )
+
+        for media in media_items:
+            avg_rating = (
+                db.query(func.avg(GeneralFeedback.rating))
+                .filter(
+                    GeneralFeedback.media_id == media.id,
+                    GeneralFeedback.feedback_type == "search_rating",
+                )
+                .scalar()
+            )
+
+            boost = 0.0
+
+            # tiny boost for liked images
+            if media.liked:
+                boost += 0.02
+
+            # tiny adjustment from ratings
+            if avg_rating is not None:
+                boost += (float(avg_rating) - 3.0) * 0.01
+
+            # keep semantic search dominant
+            boost = max(min(boost, 0.05), -0.05)
+
+            media.ranking_boost = boost
+
+        db.commit()
+
+        logger.info("Feedback ranking update complete")
+
+        return {"status": "success"}
+
+    except Exception as e:
+        logger.error("Feedback ranking failed: %s", e)
+        db.rollback()
+        raise
+
+    finally:
         db.close()
 
 

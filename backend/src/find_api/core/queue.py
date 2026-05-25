@@ -82,3 +82,23 @@ def enqueue_clustering_job(*, reason: str) -> dict[str, Any]:
 
     clear_clustering_job_state()
     return enqueue_clustering_job(reason=reason)
+
+
+def enqueue_feedback_ranking_job(reason: str) -> dict[str, Any]:
+    """Enqueue feedback ranking update job."""
+    from find_api.workers.jobs import process_feedback_ranking
+
+    job = get_task_queue().enqueue(
+        process_feedback_ranking,
+        job_timeout=settings.WORKER_TIMEOUT,
+        result_ttl=300,
+    )
+
+    logger.info("Queued feedback ranking job %s (%s)", job.id, reason)
+
+    return {
+        "job_id": job.id,
+        "message": "Feedback ranking job queued",
+        "enqueued": True,
+        "status": "queued",
+    }
