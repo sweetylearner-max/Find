@@ -198,10 +198,10 @@ const getSortOrderParam = (sortOrder: SortOrder): string | null => {
 
 /**
  * Maps a strongly-typed DateRangePreset back to a URL-friendly string.
- * @param dateRange - The active DateRangePreset type or undefined.
+ * @param dateRange - The active DateRangePreset type, undefined, or null.
  * @returns The string value to use in the URL, or null if not set.
  */
-const getDateRangeParam = (dateRange: DateRangePreset | undefined): string | null => {
+const getDateRangeParam = (dateRange: DateRangePreset | undefined | null): string | null => {
   return dateRange || null;
 };
 

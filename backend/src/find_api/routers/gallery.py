@@ -121,6 +121,14 @@ def parse_date_range(
             logger.warning("Invalid custom_end date: %s", custom_end)
 
         if start_date or end_date:
+            # Normalize reversed date bounds
+            if start_date and end_date and start_date > end_date:
+                logger.warning(
+                    "Custom date range inverted (start > end): %s > %s, swapping",
+                    custom_start,
+                    custom_end,
+                )
+                start_date, end_date = end_date, start_date
             return start_date, end_date
 
     return None, None
