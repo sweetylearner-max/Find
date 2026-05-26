@@ -152,22 +152,24 @@ export default function ClustersPage() {
   const isClusterActionBusy =
     clusterMutation.isPending || clusterJobQuery.isFetching || isJobActive;
   const minClusterSize = data?.min_cluster_size ?? 2;
+  const effectiveMinClusterSize = Math.max(minClusterSize, 1);
   const indexedImageCount = indexedQuery.data?.total ?? 0;
-  const hasEnoughIndexedImages =
-    indexedQuery.isSuccess && indexedImageCount >= minClusterSize;
+  const hasEnoughIndexedImages = indexedQuery.isSuccess &&
+  indexedImageCount > 0 &&
+  indexedImageCount >= effectiveMinClusterSize;
   const isClusterButtonDisabled =
     isClusterActionBusy || !hasEnoughIndexedImages;
   const clusteringUnavailableMessage =
     indexedQuery.isSuccess && !hasEnoughIndexedImages
-      ? `Need at least ${minClusterSize} indexed images to cluster. Found ${indexedImageCount}.`
+      ? `Need at least ${effectiveMinClusterSize} indexed images to cluster. Found ${indexedImageCount}.`
       : null;
 
   const emptyStateVariant = useMemo(() => {
     if (!indexedQuery.isSuccess) return "loading";
     if (indexedImageCount === 0) return "no-indexed-images";
-    if (indexedImageCount < minClusterSize) return "not-enough-images";
+    if (indexedImageCount < effectiveMinClusterSize) return "not-enough-images";
     return "no-stable-clusters";
-  }, [indexedQuery.isSuccess, indexedImageCount, minClusterSize]);
+  }, [indexedQuery.isSuccess, indexedImageCount, effectiveMinClusterSize]);
 
   const filteredMembers =
     selectedClusterQuery.data?.members.filter((member) =>
