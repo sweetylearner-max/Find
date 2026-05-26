@@ -380,10 +380,13 @@ function GalleryPageContent() {
       const nextLikedOnly = nextState.likedOnly ?? likedOnly;
       const nextSortOrder = nextState.sortOrder ?? sortOrder;
       // Use !== undefined check to allow explicit null values to override existing dateRange
-      const nextDateRange = nextState.dateRange !== undefined ? nextState.dateRange : dateRange;
+      const nextDateRange =
+        nextState.dateRange !== undefined ? nextState.dateRange : dateRange;
       // Use !== undefined check to allow explicit null values to override existing dates
-      const nextDateStart = nextState.dateStart !== undefined ? nextState.dateStart : dateStart;
-      const nextDateEnd = nextState.dateEnd !== undefined ? nextState.dateEnd : dateEnd;
+      const nextDateStart =
+        nextState.dateStart !== undefined ? nextState.dateStart : dateStart;
+      const nextDateEnd =
+        nextState.dateEnd !== undefined ? nextState.dateEnd : dateEnd;
       const nextParams = new URLSearchParams(searchParams.toString());
       const statusParam = getStatusParamFromFilter(nextFilter);
 
@@ -437,7 +440,16 @@ function GalleryPageContent() {
       const queryString = nextParams.toString();
       return queryString ? `${pathname}?${queryString}` : pathname;
     },
-    [filter, likedOnly, sortOrder, dateRange, dateStart, dateEnd, pathname, searchParams],
+    [
+      filter,
+      likedOnly,
+      sortOrder,
+      dateRange,
+      dateStart,
+      dateEnd,
+      pathname,
+      searchParams,
+    ],
   );
 
   const updateGalleryParams = useCallback(
