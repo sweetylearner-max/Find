@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, Calendar } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DateRangePreset, SortOrder } from "@/lib/api";
 
 interface GalleryDateFilterProps {
@@ -29,6 +29,32 @@ export function GalleryDateFilter({
   const [customEnd, setCustomEnd] = useState(dateEnd || "");
   const sortMenuRef = useRef<HTMLDivElement>(null);
   const datePickerRef = useRef<HTMLDivElement>(null);
+
+  // Sync local state when props change (e.g., URL state restoration, browser history)
+  useEffect(() => {
+    setCustomStart(dateStart || "");
+    setCustomEnd(dateEnd || "");
+  }, [dateStart, dateEnd]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (sortMenuRef.current && !sortMenuRef.current.contains(target)) {
+        setShowSortMenu(false);
+      }
+      if (datePickerRef.current && !datePickerRef.current.contains(target)) {
+        setShowDatePicker(false);
+      }
+    };
+
+    if (showSortMenu || showDatePicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [showSortMenu, showDatePicker]);
 
   const getDateRangeLabel = () => {
     if (!dateRange) return "All dates";

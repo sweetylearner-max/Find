@@ -205,9 +205,6 @@ const getDateRangeParam = (dateRange: DateRangePreset | null): string | null => 
   return dateRange || null;
 };
 
-  return "all";
-};
-
 /**
  * Maps a strongly-typed GalleryFilter back to a URL-friendly status string.
  * @param filter - The active GalleryFilter type.
@@ -271,7 +268,7 @@ function GalleryPageContent() {
         status: filter === "all" ? undefined : filter,
         liked: likedOnly ? true : undefined,
         sortOrder,
-        dateRange,
+        dateRange: dateRange || undefined,
         dateStart: dateStart || undefined,
         dateEnd: dateEnd || undefined,
       }),
@@ -370,9 +367,9 @@ function GalleryPageContent() {
       const nextFilter = nextState.filter ?? filter;
       const nextLikedOnly = nextState.likedOnly ?? likedOnly;
       const nextSortOrder = nextState.sortOrder ?? sortOrder;
-      const nextDateRange = nextState.dateRange ?? dateRange;
-      const nextDateStart = nextState.dateStart ?? dateStart;
-      const nextDateEnd = nextState.dateEnd ?? dateEnd;
+      const nextDateRange = nextState.dateRange !== undefined ? nextState.dateRange : dateRange;
+      const nextDateStart = nextState.dateStart !== undefined ? nextState.dateStart : dateStart;
+      const nextDateEnd = nextState.dateEnd !== undefined ? nextState.dateEnd : dateEnd;
       const nextParams = new URLSearchParams(searchParams.toString());
       const statusParam = getStatusParamFromFilter(nextFilter);
 
@@ -404,15 +401,22 @@ function GalleryPageContent() {
         nextParams.delete("date_range");
       }
 
-      if (nextDateStart) {
-        nextParams.set("date_start", nextDateStart);
-      } else {
-        nextParams.delete("date_start");
-      }
+      // Enforce invariant: only store date_start/date_end when dateRange is "custom"
+      if (nextDateRange === "custom") {
+        if (nextDateStart) {
+          nextParams.set("date_start", nextDateStart);
+        } else {
+          nextParams.delete("date_start");
+        }
 
-      if (nextDateEnd) {
-        nextParams.set("date_end", nextDateEnd);
+        if (nextDateEnd) {
+          nextParams.set("date_end", nextDateEnd);
+        } else {
+          nextParams.delete("date_end");
+        }
       } else {
+        // Clear date_start/date_end if not using custom range
+        nextParams.delete("date_start");
         nextParams.delete("date_end");
       }
 
