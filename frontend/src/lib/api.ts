@@ -146,6 +146,8 @@ export interface ClusterDetail {
   }>;
 }
 
+export type ClusterUpdateResponse = Omit<ClusterInfo, "samples">;
+
 export interface ClusteringJobResponse {
   message: string;
   job_id: string;
@@ -332,6 +334,17 @@ export const getClusterDetail = async (
   clusterId: number,
 ): Promise<ClusterDetail> => {
   const response = await api.get<ClusterDetail>(`/api/cluster/${clusterId}`);
+  return response.data;
+};
+
+export const updateCluster = async (
+  clusterId: number,
+  payload: { label?: string | null },
+): Promise<ClusterUpdateResponse> => {
+  const response = await api.patch<ClusterUpdateResponse>(
+    `/api/cluster/${clusterId}`,
+    payload,
+  );
   return response.data;
 };
 
