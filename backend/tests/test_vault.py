@@ -292,12 +292,8 @@ class TestVaultStream:
         second_media = seed_media(db, filename="second-vault.png")
         token = unlock_vault(client, db)
 
-        first_encrypted_path = hide_media(
-            client, db, media=first_media, token=token
-        )
-        second_encrypted_path = hide_media(
-            client, db, media=second_media, token=token
-        )
+        first_encrypted_path = hide_media(client, db, media=first_media, token=token)
+        second_encrypted_path = hide_media(client, db, media=second_media, token=token)
         vault_artifacts.extend([first_encrypted_path, second_encrypted_path])
 
         second_metadata = db.execute(
