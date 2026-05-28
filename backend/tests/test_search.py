@@ -5,7 +5,14 @@ from unittest.mock import MagicMock, patch
 
 from find_api.core.database import get_db
 from find_api.main import app
+from find_api.services.query_cache import clear_query_cache
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def clear_cache_between_tests():
+    clear_query_cache()
 
 def _mock_search(client, fake_rows, *, params=None, total_count=None):
     """Call /api/search with mocked embeddings and paginated DB responses."""

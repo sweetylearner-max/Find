@@ -6,7 +6,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 import json
-
+from find_api.services.query_cache import (
+    get_cached_query,
+    set_cached_query,
+)
 from typing import Dict
 
 from find_api.core.config import settings
@@ -45,7 +48,14 @@ def search_images(
 
         embedder = get_clip_embedder()
 
-    query_embedding = embedder.embed_text(q)
+    cached = get_cached_query(q, limit, skip)
+    if cached and cached.get("results"):
+        return cached["results"]
+
+    if cached:
+        query_embedding = cached["embedding"]
+    else:
+        query_embedding = embedder.embed_text(q)
 
     # Convert to string format for pgvector
     embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
@@ -166,10 +176,11 @@ def search_images(
         )
 
     # Calculate pagination metadata
+    # Calculate pagination metadata
     page = (skip // limit) + 1 if limit > 0 else 1
     has_more = (skip + len(results)) < total_count
 
-    return {
+    response_payload = {
         "query": q,
         "results": results,
         "total": total_count,
@@ -178,3 +189,8 @@ def search_images(
         "skip": skip,
         "has_more": has_more,
     }
+
+    if not cached:
+        set_cached_query(q, limit, skip, query_embedding, response_payload)
+
+    return response_payload
