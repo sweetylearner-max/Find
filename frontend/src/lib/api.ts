@@ -197,9 +197,9 @@ export interface GalleryCounts {
   failed: number;
 }
 
-export const getGalleryCounts = async (params: {
-  liked?: boolean;
-} = {}): Promise<GalleryCounts> => {
+export const getGalleryCounts = async (
+  params: { liked?: boolean } = {},
+): Promise<GalleryCounts> => {
   const response = await api.get<GalleryCounts>("/api/gallery/counts", {
     params: { liked: params.liked },
   });

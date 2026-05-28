@@ -19,8 +19,8 @@ import { ImagePreviewModal } from "@/components/image-preview-modal";
 import { StatusIndicator } from "@/components/status-indicator";
 import {
   deleteImage,
-  type GalleryResponse,
   type GalleryCounts,
+  type GalleryResponse,
   getGallery,
   getGalleryCounts,
   type MediaItem,
@@ -230,11 +230,13 @@ export default function GalleryPage() {
               >
                 {label}
                 {counts && (
-                  <span className={`rounded-full px-1.5 py-0.5 text-xs ${
-                    filter === value
-                      ? "bg-black/20 text-black"
-                      : "bg-white/10 text-[#a1a4a5]"
-                  }`}>
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-xs ${
+                      filter === value
+                        ? "bg-black/20 text-black"
+                        : "bg-white/10 text-[#a1a4a5]"
+                    }`}
+                  >
                     {counts[value]}
                   </span>
                 )}

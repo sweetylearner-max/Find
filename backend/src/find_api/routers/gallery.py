@@ -27,6 +27,7 @@ def normalize_metadata(value):
         return parsed if isinstance(parsed, dict) else {}
     return {}
 
+
 @router.get("/gallery/counts")
 def get_gallery_counts(
     liked: Optional[bool] = None,
