@@ -334,7 +334,10 @@ def reprocess_image(media_id: int, db: Session = Depends(get_db)):
 
     try:
         job = get_task_queue().enqueue(
-            analyze_image, media.id, job_timeout=settings.WORKER_TIMEOUT
+            analyze_image,
+            media.id,
+            True,
+            job_timeout=settings.WORKER_TIMEOUT,
         )
         media.analysis_job_id = job.id
         db.commit()

@@ -30,6 +30,7 @@ except Exception as e:
     logger.error(f"Failed to start model cleanup thread in worker: {e}")
 
 FACE_CLUSTER_NAME_MATCH_THRESHOLD = 0.72
+ANALYSIS_MODEL_NAMES = ("yolo", "florence-2", "paddleocr", "siglip", "insightface")
 
 
 def cosine_similarity(left: np.ndarray, right: np.ndarray) -> float:
@@ -88,7 +89,7 @@ def generate_thumbnail_for_media(media_id: int):
         db.close()
 
 
-def analyze_image(media_id: int):
+def analyze_image(media_id: int, clear_model_failures: bool = False):
     """
     Main worker job to analyze an uploaded image
     """
@@ -105,6 +106,9 @@ def analyze_image(media_id: int):
     metadata = None
 
     try:
+        if clear_model_failures:
+            get_model_manager().clear_model_failures(ANALYSIS_MODEL_NAMES)
+
         set_stage(job, "loading image")
 
         media = db.query(Media).filter(Media.id == media_id).first()
