@@ -218,7 +218,14 @@ export function ImagePreviewModal({
   const queryClient = useQueryClient();
   const [likedOverride, setLikedOverride] = useState<boolean | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [captionCopied, setCaptionCopied] = useState(false);
   const [ocrCopied, setOcrCopied] = useState(false);
+
+  useEffect(() => {
+    if (!captionCopied) return;
+    const id = setTimeout(() => setCaptionCopied(false), 2000);
+    return () => clearTimeout(id);
+  }, [captionCopied]);
 
   useEffect(() => {
     if (!ocrCopied) return;
@@ -509,9 +516,38 @@ export function ImagePreviewModal({
             </section>
 
             <section className="mb-6">
-              <h3 className="mb-2 text-xs font-semibold uppercase text-[color:var(--muted)]">
-                Caption
-              </h3>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 className="text-xs font-semibold uppercase text-[color:var(--muted)]">
+                  Caption
+                </h3>
+                {caption ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(caption);
+                        setCaptionCopied(true);
+                        toast.success("Caption copied to clipboard");
+                      } catch {
+                        toast.error("Failed to copy caption");
+                      }
+                    }}
+                    className="frost-button px-2 py-1 text-xs text-[color:var(--silver)]"
+                    aria-label={
+                      captionCopied
+                        ? "Caption copied to clipboard"
+                        : "Copy caption to clipboard"
+                    }
+                  >
+                    {captionCopied ? (
+                      <Check className="h-3 w-3 text-[color:var(--green)]" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                    {captionCopied ? "Copied" : "Copy"}
+                  </button>
+                ) : null}
+              </div>
               <div className="min-w-0 space-y-3 overflow-hidden rounded-2xl border border-[var(--frost)] bg-[color:var(--surface-soft)] p-4">
                 {status === "pending" || status === "processing" ? (
                   <p className="text-sm text-[color:var(--silver)] flex items-center gap-2">
