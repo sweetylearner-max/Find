@@ -160,7 +160,6 @@
     scrollbar-color: var(--scrollbar-thumb) transparent;
     scrollbar-width: thin;
     overflow-x: hidden;
-    max-width: 100%;
   }
 
   body {
@@ -183,9 +182,6 @@
       "Segoe UI", sans-serif;
     overflow-y: auto;
     overflow-x: hidden;
-    max-width: 100%;
-    width: 100%;
-    position: relative;
   }
 
   button,
@@ -247,7 +243,6 @@
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 18rem),
       var(--void);
-    overflow-x: hidden;
   }
 
   .home-shell {
@@ -256,7 +251,6 @@
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 18rem),
       var(--void);
-    overflow-x: hidden;
   }
 
   body:has(.home-shell) {
@@ -423,15 +417,6 @@
     transform: translateY(-3px);
     border-color: var(--frost-strong);
     background-color: var(--surface-soft);
-  }
-
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
   }
 
   /* Keep light-mode image cards clear without changing the dark theme fade. */

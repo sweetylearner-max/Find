@@ -3,7 +3,7 @@
 import { Menu, Moon, Sun, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getAppConfig } from "@/lib/api";
 
@@ -21,6 +21,7 @@ type Theme = "light" | "dark";
 
 export default function NavBar() {
   const pathname = usePathname();
+  const previousPathname = useRef(pathname);
 
   // Prevent hydration mismatch for active nav links
   const [mounted, setMounted] = useState(false);
@@ -78,14 +79,13 @@ export default function NavBar() {
     };
   }, []);
 
-  // Close drawer on route change
-  // useEffect(() => {
-  //   setIsDrawerOpen(false);
-  // }, [pathname]);
   useEffect(() => {
-    setIsDrawerOpen(false);
+    if (previousPathname.current !== pathname) {
+      previousPathname.current = pathname;
+      setIsDrawerOpen(false);
+    }
   }, [pathname]);
-  // Handle escape key to close drawer
+
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") setIsDrawerOpen(false);
@@ -168,14 +168,11 @@ export default function NavBar() {
 
   return (
     <>
-      {/* Interactive Navigation Container */}
       <div className="flex items-center justify-end">
-        {/* Desktop Navigation */}
         <div className="hidden lg:flex items-center gap-2 rounded-full border border-[var(--frost)] bg-[color:var(--frost-soft)] p-1">
           {navContent()}
         </div>
 
-        {/* Mobile & Tablet Hamburger Button */}
         <button
           type="button"
           onClick={() => setIsDrawerOpen(true)}
@@ -186,24 +183,10 @@ export default function NavBar() {
         </button>
       </div>
 
-      {/* 
-        DRAWER OVERLAY & CONTENT 
-        Rendered via React Portal directly into document.body to escape the 
-        backdrop-blur CSS containing block of the <nav> element.
-      */}
       {mounted &&
         typeof document !== "undefined" &&
         createPortal(
           <>
-            {/* Mobile & Tablet Drawer Overlay */}
-            {/* <div
-              className={`fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm transition-all duration-300 lg:hidden ${
-                isDrawerOpen
-                  ? "opacity-100 visible"
-                  : "opacity-0 invisible pointer-events-none"
-              }`}
-              onClick={() => setIsDrawerOpen(false)}
-            /> */}
             <button
               type="button"
               aria-label="Close navigation menu"
@@ -214,7 +197,6 @@ export default function NavBar() {
               }`}
               onClick={() => setIsDrawerOpen(false)}
             />
-            {/* Mobile & Tablet Drawer Content */}
             <div
               className={`fixed right-0 top-0 z-[70] h-full w-[280px] border-l border-[var(--frost)] bg-[color:var(--void)] p-6 shadow-2xl transition-all duration-300 ease-in-out lg:hidden ${
                 isDrawerOpen
