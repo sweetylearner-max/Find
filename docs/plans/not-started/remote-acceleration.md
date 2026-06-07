@@ -444,8 +444,8 @@ Implementation issues will be opened only after this design is reviewed and acce
 
 ## 13. UX Copy Checklist
 
-This checklist is for implementers building the Remote Acceleration UI (issues 5, 6, 7 from §12). 
-Copy strings are derived from §9.2 (the single source of truth). Implementers should refer to §9.2 for the canonical wording; this checklist summarises the required items for convenience.
+This checklist is for implementers building the Remote Acceleration UI described in §12.
+Copy strings are derived from §9.2, which remains the single source of truth. Implementers should refer to §9.2 for the canonical wording; this checklist summarizes the required items for convenience.
 
 ---
 
