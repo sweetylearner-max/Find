@@ -431,3 +431,68 @@ class TestBulkDeleteImages:
         assert body["failed_ids"] == [first.id]
         assert db.query(Media).filter(Media.id == first.id).first() is not None
         assert db.query(Media).filter(Media.id == second.id).first() is None
+
+
+class TestGalleryMetadataFilters:
+    """Gallery filters using EXIF and image metadata."""
+
+    def test_gallery_filters_by_camera_make(self, client, db):
+        canon = _seed(db, filename="canon.jpg", status="indexed")
+        nikon = _seed(db, filename="nikon.jpg", status="indexed")
+        canon.exif_json = {"make": "Canon", "model": "EOS 80D"}
+        nikon.exif_json = {"make": "Nikon", "model": "D3500"}
+        db.commit()
+
+        response = client.get("/api/gallery", params={"camera_make": "Canon"})
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 1
+        assert body["items"][0]["filename"] == "canon.jpg"
+
+    def test_gallery_filters_by_camera_model(self, client, db):
+        canon = _seed(db, filename="canon.jpg", status="indexed")
+        sony = _seed(db, filename="sony.jpg", status="indexed")
+        canon.exif_json = {"make": "Canon", "model": "EOS 80D"}
+        sony.exif_json = {"make": "Sony", "model": "Alpha 7"}
+        db.commit()
+
+        response = client.get("/api/gallery", params={"camera_model": "Alpha"})
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 1
+        assert body["items"][0]["filename"] == "sony.jpg"
+
+    def test_gallery_filters_by_min_dimensions(self, client, db):
+        small = _seed(db, filename="small.jpg", status="indexed")
+        large = _seed(db, filename="large.jpg", status="indexed")
+        small.width = 640
+        small.height = 480
+        large.width = 3000
+        large.height = 2000
+        db.commit()
+
+        response = client.get(
+            "/api/gallery",
+            params={"min_width": 1000, "min_height": 1000},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 1
+        assert body["items"][0]["filename"] == "large.jpg"
+
+    def test_gallery_filters_by_file_type(self, client, db):
+        jpg = _seed(db, filename="photo.jpg", status="indexed")
+        png = _seed(db, filename="graphic.png", status="indexed")
+        jpg.content_type = "image/jpeg"
+        png.content_type = "image/png"
+        db.commit()
+
+        response = client.get("/api/gallery", params={"file_type": "png"})
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 1
+        assert body["items"][0]["filename"] == "graphic.png"
