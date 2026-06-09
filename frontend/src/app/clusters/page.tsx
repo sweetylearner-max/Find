@@ -63,6 +63,18 @@ function getJobStatusClass(status?: string) {
   }
 }
 
+function getClusterDisplayName(cluster: {
+  id: number;
+  label?: string | null;
+  description?: string | null;
+}) {
+  return (
+    cluster.label?.trim() ||
+    cluster.description?.trim() ||
+    `Cluster ${cluster.id}`
+  );
+}
+
 export default function ClustersPage() {
   const queryClient = useQueryClient();
   const [selectedClusterId, setSelectedClusterId] = useState<number | null>(
@@ -104,8 +116,15 @@ export default function ClustersPage() {
   });
 
   useEffect(() => {
-    setClusterLabelDraft(selectedClusterQuery.data?.label ?? "");
-  }, [selectedClusterQuery.data?.label]);
+    setClusterLabelDraft(
+      selectedClusterQuery.data?.label ??
+        selectedClusterQuery.data?.description ??
+        "",
+    );
+  }, [
+    selectedClusterQuery.data?.label,
+    selectedClusterQuery.data?.description,
+  ]);
 
   useEffect(() => {
     if (!clusterJobId || !clusterJobQuery.data) {
@@ -424,23 +443,26 @@ export default function ClustersPage() {
                     <div className="min-w-0">
                       <div className="mb-2 flex flex-wrap items-center gap-2">
                         <h2 className="text-lg font-medium text-[color:var(--near-white)]">
-                          {cluster.label?.trim() || `Cluster ${cluster.id}`}
+                          {getClusterDisplayName(cluster)}
                         </h2>
                         <span className="accent-badge status-default">
                           {cluster.member_count}{" "}
                           {cluster.member_count === 1 ? "image" : "images"}
                         </span>
                       </div>
-                      {cluster.label?.trim() && (
+                      {(cluster.label?.trim() ||
+                        cluster.description?.trim()) && (
                         <p className="text-xs uppercase text-[color:var(--muted)]">
                           Cluster {cluster.id}
                         </p>
                       )}
-                      {cluster.description && (
-                        <p className="mt-1 line-clamp-2 text-sm leading-6 text-[color:var(--muted)]">
-                          {cluster.description}
-                        </p>
-                      )}
+                      {cluster.description &&
+                        cluster.label?.trim() &&
+                        cluster.description.trim() !== cluster.label.trim() && (
+                          <p className="mt-1 line-clamp-2 text-sm leading-6 text-[color:var(--muted)]">
+                            {cluster.description}
+                          </p>
+                        )}
                     </div>
 
                     <button
@@ -508,7 +530,11 @@ export default function ClustersPage() {
               onClick={() => {
                 setSelectedClusterId(null);
                 setFilterText("");
-                setClusterLabelDraft(selectedClusterQuery.data?.label ?? "");
+                setClusterLabelDraft(
+                  selectedClusterQuery.data?.label ??
+                    selectedClusterQuery.data?.description ??
+                    "",
+                );
               }}
               className="icon-button absolute right-4 top-4 z-20 bg-[color:var(--overlay)] text-white backdrop-blur-md"
               aria-label="Close cluster detail"
@@ -518,14 +544,17 @@ export default function ClustersPage() {
 
             <div className="border-b border-[var(--frost)] px-6 py-5">
               <h2 className="text-xl font-medium text-[color:var(--near-white)]">
-                {selectedClusterQuery.data?.label?.trim() ||
-                  `Cluster ${selectedClusterId}`}
+                {selectedClusterQuery.data
+                  ? getClusterDisplayName(selectedClusterQuery.data)
+                  : `Cluster ${selectedClusterId}`}
               </h2>
-              {selectedClusterQuery.data?.label?.trim() && (
-                <p className="mt-1 text-xs uppercase text-[color:var(--muted)]">
-                  Cluster {selectedClusterId}
-                </p>
-              )}
+              {selectedClusterQuery.data &&
+                (selectedClusterQuery.data.label?.trim() ||
+                  selectedClusterQuery.data.description?.trim()) && (
+                  <p className="mt-1 text-xs uppercase text-[color:var(--muted)]">
+                    Cluster {selectedClusterId}
+                  </p>
+                )}
               <p className="mt-1 text-sm text-[color:var(--silver)]">
                 Images grouped by visual and semantic similarity.
               </p>
@@ -550,11 +579,14 @@ export default function ClustersPage() {
                     <span className="accent-badge status-default">
                       {selectedClusterQuery.data.member_count} members
                     </span>
-                    {selectedClusterQuery.data.description && (
-                      <span className="text-sm text-[color:var(--muted)]">
-                        {selectedClusterQuery.data.description}
-                      </span>
-                    )}
+                    {selectedClusterQuery.data.description &&
+                      selectedClusterQuery.data.label?.trim() &&
+                      selectedClusterQuery.data.description.trim() !==
+                        selectedClusterQuery.data.label.trim() && (
+                        <span className="text-sm text-[color:var(--muted)]">
+                          {selectedClusterQuery.data.description}
+                        </span>
+                      )}
                   </div>
                   <form
                     className="mb-6 flex flex-col gap-2 sm:flex-row"

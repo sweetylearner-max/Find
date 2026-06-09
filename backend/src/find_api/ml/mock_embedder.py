@@ -76,6 +76,7 @@ class MockEmbedder:
     ) -> list[float]:
         caption = str(metadata.get("caption", ""))
         objects = metadata.get("objects", [])
+        ocr_text = str(metadata.get("ocr_text", ""))
         object_text = ",".join(
             sorted(
                 {
@@ -86,8 +87,15 @@ class MockEmbedder:
             )
         )
         image_vector = self.embed_image(image)
-        text_vector = self.embed_text(f"{caption} {object_text}")
-        hybrid_vector = (image_vector + text_vector) / 2.0
+
+        text_parts = [part.strip() for part in [caption, object_text, ocr_text] if part]
+        if text_parts:
+            text_vector = self.embed_text(" ".join(text_parts))
+            # Bias toward text in mock mode so lexical relevance is visible during development.
+            hybrid_vector = (image_vector * 0.45) + (text_vector * 0.55)
+        else:
+            hybrid_vector = image_vector
+
         norm = np.linalg.norm(hybrid_vector)
         if norm > 0:
             hybrid_vector = hybrid_vector / norm
