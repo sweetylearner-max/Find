@@ -20,23 +20,14 @@ from find_api.models.user import User
 
 
 def hash_password(plain: str) -> str:
-    """Hash a plaintext password with bcrypt.
-
-    bcrypt only uses the first 72 input bytes, so prehash to a stable
-    64-byte ASCII digest before bcrypt sees the value.
-    """
+    """Hash a plaintext password with bcrypt."""
     salt = bcrypt.gensalt()
-    return bcrypt.hashpw(_bcrypt_input(plain), salt).decode("utf-8")
+    return bcrypt.hashpw(plain.encode("utf-8"), salt).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
     """Check a plaintext password against its bcrypt hash."""
-    return bcrypt.checkpw(_bcrypt_input(plain), hashed.encode("utf-8"))
-
-
-def _bcrypt_input(plain: str) -> bytes:
-    # codeql[py/insecure-password-hashing]
-    return hashlib.sha256(plain.encode("utf-8")).hexdigest().encode("ascii")
+    return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
 def hash_token(raw: str) -> str:
