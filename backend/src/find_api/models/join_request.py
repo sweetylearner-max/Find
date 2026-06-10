@@ -34,4 +34,4 @@ class JoinRequest(Base):
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
 
     def __repr__(self):
-        return f"<JoinRequest(id={self.id}, username={self.username}, status={self.status})>"
+        return f"<JoinRequest(id={self.id}, status={self.status})>"

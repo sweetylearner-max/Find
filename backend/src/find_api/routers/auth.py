@@ -11,11 +11,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from pydantic import BaseModel, Field
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from find_api.core.auth import (
     create_session,
@@ -44,6 +44,13 @@ class SetupRequest(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     display_name: Optional[str] = Field(None, max_length=255)
 
+    @field_validator("password")
+    @classmethod
+    def password_fits_bcrypt(cls, v: str) -> str:
+        if len(v.encode("utf-8")) > 72:
+            raise ValueError("Password must be 72 bytes or fewer when encoded as UTF-8")
+        return v
+
 
 class LoginRequest(BaseModel):
     username: str = Field(..., min_length=1)
@@ -59,6 +66,13 @@ class JoinCreateRequest(BaseModel):
     username: str = Field(..., min_length=1, max_length=150)
     password: str = Field(..., min_length=8, max_length=128)
     display_name: Optional[str] = Field(None, max_length=255)
+
+    @field_validator("password")
+    @classmethod
+    def password_fits_bcrypt(cls, v: str) -> str:
+        if len(v.encode("utf-8")) > 72:
+            raise ValueError("Password must be 72 bytes or fewer when encoded as UTF-8")
+        return v
 
 
 def _user_dict(user: User) -> dict:

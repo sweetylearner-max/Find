@@ -2,21 +2,22 @@
 Upload endpoint for image ingestion
 """
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from PIL import Image
-from sqlalchemy.orm import Session
-from typing import List, Optional
 import hashlib
 import io
 import logging
 import mimetypes
 import zipfile
+from typing import List, Optional
 
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from PIL import Image
+from sqlalchemy.orm import Session
+
+from find_api.core.config import settings
 from find_api.core.database import get_db
 from find_api.core.dependencies import get_optional_user
 from find_api.core.queue import get_task_queue
 from find_api.core.storage import upload_file, upload_thumbnail
-from find_api.core.config import settings
 from find_api.models.media import Media
 from find_api.models.user import User
 from find_api.workers.jobs import analyze_image
@@ -243,6 +244,9 @@ def _ingest_image(
 
     existing = db.query(Media).filter(Media.file_hash == file_hash).first()
     if existing:
+        if uploader_user_id is not None and existing.uploader_user_id is None:
+            existing.uploader_user_id = uploader_user_id
+            db.commit()
         logger.info(f"File {filename} already exists (hash: {file_hash})")
         return {"filename": filename, "status": "duplicate", "media_id": existing.id}
 
