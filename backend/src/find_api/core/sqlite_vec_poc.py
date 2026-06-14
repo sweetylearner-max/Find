@@ -18,21 +18,25 @@ def create_connection(db_path=":memory:"):
 
 
 def create_schema(conn, embedding_dim: int):
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS media (
             id INTEGER PRIMARY KEY,
             filename TEXT NOT NULL,
             status TEXT NOT NULL
         )
-    """)
+    """
+    )
 
-    conn.execute(f"""
+    conn.execute(
+        f"""
         CREATE VIRTUAL TABLE IF NOT EXISTS media_vectors
         USING vec0(
             media_id INTEGER PRIMARY KEY,
             embedding FLOAT[{embedding_dim}]
         )
-    """)
+    """
+    )
 
     conn.commit()
 
@@ -180,14 +184,16 @@ class SQLiteVecPOC:
         ]
 
     def gallery_query(self):
-        rows = self.conn.execute("""
+        rows = self.conn.execute(
+            """
             SELECT
                 id,
                 filename,
                 status
             FROM media
             ORDER BY id
-            """).fetchall()
+            """
+        ).fetchall()
 
         return [
             {
