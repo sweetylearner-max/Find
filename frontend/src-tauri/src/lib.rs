@@ -1,3 +1,6 @@
+//! Tauri sidecar supervision for Find desktop application.
+//! Spawns and supervises the FastAPI backend process.
+
 use tauri::Manager;
 use tauri::Emitter;
 use tauri_plugin_shell::ShellExt;
@@ -5,6 +8,7 @@ use tauri_plugin_shell::process::CommandEvent;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+/// Shared state tracking whether the backend sidecar is running.
 #[derive(Default)]
 struct BackendState {
     running: bool,
@@ -26,10 +30,19 @@ pub fn run() {
             });
             Ok(())
         })
+        .on_window_event(|_window, event| {
+            if let tauri::WindowEvent::Destroyed = event {
+                log::info!("Window destroyed - backend sidecar will be cleaned up.");
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
+/// Supervises the backend sidecar process with automatic restart on crash.
+///
+/// Retries up to `MAX_RETRIES` times with a `RETRY_DELAY_SECS` delay between attempts.
+/// Emits `backend-failed` event to the frontend if all retries are exhausted.
 async fn supervise_backend(app: tauri::AppHandle, state: SharedState) {
     const MAX_RETRIES: u32 = 5;
     const RETRY_DELAY_SECS: u64 = 2;
@@ -57,6 +70,10 @@ async fn supervise_backend(app: tauri::AppHandle, state: SharedState) {
     }
 }
 
+/// Spawns the backend sidecar and monitors its output until termination.
+///
+/// Emits `backend-ready` to the frontend once the process starts successfully.
+/// Returns `Ok(())` on clean exit (code 0), or `Err` on crash or error.
 async fn start_sidecar(app: &tauri::AppHandle, state: &SharedState) -> Result<(), String> {
     let shell = app.shell();
     let (mut rx, _child) = shell
