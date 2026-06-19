@@ -37,11 +37,7 @@ class MockEmbedder:
         target_bytes = settings.EMBEDDING_DIM * 4
 
         while sum(len(chunk) for chunk in chunks) < target_bytes:
-            chunks.append(
-                hashlib.sha256(
-                    payload + counter.to_bytes(4, "big")
-                ).digest()
-            )
+            chunks.append(hashlib.sha256(payload + counter.to_bytes(4, "big")).digest())
             counter += 1
 
         raw = b"".join(chunks)[:target_bytes]
@@ -57,9 +53,7 @@ class MockEmbedder:
             return self._vector_from_bytes(b"text:")
 
         vectors = [
-            self._vector_from_bytes(
-                f"token:{token}".encode("utf-8")
-            )
+            self._vector_from_bytes(f"token:{token}".encode("utf-8"))
             for token in tokens
         ]
 
@@ -121,10 +115,7 @@ class MockEmbedder:
             text_vector = self.embed_text(" ".join(text_parts))
 
             # Bias toward text in mock mode
-            hybrid_vector = (
-                image_vector * 0.45
-                + text_vector * 0.55
-            )
+            hybrid_vector = image_vector * 0.45 + text_vector * 0.55
         else:
             hybrid_vector = image_vector
 
