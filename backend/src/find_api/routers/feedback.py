@@ -372,9 +372,7 @@ def rate_search_result(
         db.refresh(feedback)
 
         try:
-            enqueue_feedback_ranking_job(
-                reason=f"feedback:{body.media_id}"
-            )
+            enqueue_feedback_ranking_job(reason=f"feedback:{body.media_id}")
         except Exception as exc:
             logger.warning(
                 "Failed to queue feedback ranking update: %s",
@@ -390,6 +388,37 @@ def rate_search_result(
         db.rollback()
         logger.exception("Failed to record search rating")
         raise HTTPException(status_code=500, detail="Failed to save rating")
+
+
+@router.delete("/feedback/search-preferences")
+def reset_search_preferences(db: Session = Depends(get_db)):
+    """
+    Reset local search ranking preferences without deleting media or likes.
+    """
+    try:
+        deleted = (
+            db.query(GeneralFeedback)
+            .filter(GeneralFeedback.feedback_type == "search_rating")
+            .delete(synchronize_session=False)
+        )
+        updated = db.query(Media).update(
+            {Media.ranking_boost: 0.0},
+            synchronize_session=False,
+        )
+        db.commit()
+
+        return {
+            "status": "reset",
+            "deleted_search_ratings": deleted,
+            "reset_media_count": updated,
+        }
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to reset search preferences")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to reset search preferences",
+        )
 
 
 @router.post("/feedback/caption-rating", response_model=GeneralFeedbackResponse)

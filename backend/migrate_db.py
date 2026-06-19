@@ -49,7 +49,7 @@ def migrate_db():
             )
             conn.execute(
                 text(
-                     "ALTER TABLE media ADD COLUMN IF NOT EXISTS ranking_boost FLOAT NOT NULL DEFAULT 0;"
+                    "ALTER TABLE media ADD COLUMN IF NOT EXISTS ranking_boost FLOAT NOT NULL DEFAULT 0;"
                 )
             )
 

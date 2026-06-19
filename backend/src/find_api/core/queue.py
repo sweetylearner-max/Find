@@ -42,6 +42,13 @@ def clear_clustering_job_state() -> None:
     redis_conn.delete(CLUSTERING_JOB_ID_KEY)
 
 
+def clear_feedback_ranking_job_state() -> None:
+    """Clear Redis keys used to coalesce feedback ranking jobs."""
+    redis_conn = get_redis_connection()
+    redis_conn.delete(FEEDBACK_LOCK_KEY)
+    redis_conn.delete(FEEDBACK_JOB_ID_KEY)
+
+
 def enqueue_clustering_job(*, reason: str) -> dict[str, Any]:
     """Enqueue clustering once, even if multiple workers request it."""
     redis_conn = get_redis_connection()
@@ -116,15 +123,22 @@ def enqueue_feedback_ranking_job(reason: str) -> dict[str, Any]:
         }
 
     if existing_job_id:
-        return {
-            "job_id": existing_job_id.decode("utf-8"),
-            "message": "Feedback ranking job already queued",
-            "enqueued": False,
-            "status": "queued",
-        }
+        job_id = existing_job_id.decode("utf-8")
+        try:
+            job = Job.fetch(job_id, connection=redis_conn)
+            job_status = job.get_status()
+        except Exception:  # noqa: BLE001
+            clear_feedback_ranking_job_state()
+        else:
+            if job_status not in {"queued", "started", "deferred"}:
+                clear_feedback_ranking_job_state()
+                return enqueue_feedback_ranking_job(reason=reason)
+            return {
+                "job_id": job_id,
+                "message": "Feedback ranking job already queued",
+                "enqueued": False,
+                "status": job_status,
+            }
 
-    return {
-        "message": "Unable to queue feedback ranking job",
-        "enqueued": False,
-        "status": "failed",
-    }
+    clear_feedback_ranking_job_state()
+    return enqueue_feedback_ranking_job(reason=reason)

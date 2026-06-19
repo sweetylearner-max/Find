@@ -10,7 +10,11 @@ import numpy as np
 from rq import get_current_job
 
 from find_api.core.database import SessionLocal
-from find_api.core.queue import clear_clustering_job_state, enqueue_clustering_job
+from find_api.core.queue import (
+    clear_clustering_job_state,
+    clear_feedback_ranking_job_state,
+    enqueue_clustering_job,
+)
 from find_api.core.storage import get_file, upload_thumbnail
 from find_api.core.model_manager import get_model_manager
 from find_api.core.config import settings
@@ -364,7 +368,7 @@ def cluster_images():
         clear_clustering_job_state()
         db.close()
 
-    
+
 def process_feedback_ranking():
     """
     Background job to compute tiny ranking boosts
@@ -376,11 +380,7 @@ def process_feedback_ranking():
     try:
         logger.info("Starting feedback ranking update...")
 
-        media_items = (
-            db.query(Media)
-            .filter(Media.status == "indexed")
-            .all()
-        )
+        media_items = db.query(Media).filter(Media.status == "indexed").all()
 
         feedback_scores = (
             db.query(
@@ -394,10 +394,7 @@ def process_feedback_ranking():
             .all()
         )
 
-        score_map = {
-            media_id: avg_rating
-            for media_id, avg_rating in feedback_scores
-        }
+        score_map = {media_id: avg_rating for media_id, avg_rating in feedback_scores}
 
         for media in media_items:
             avg_rating = score_map.get(media.id)
@@ -429,6 +426,7 @@ def process_feedback_ranking():
         raise
 
     finally:
+        clear_feedback_ranking_job_state()
         db.close()
 
 
