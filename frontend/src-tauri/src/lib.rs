@@ -1,14 +1,16 @@
-//! Tauri sidecar supervision for Find desktop application.
-//! Spawns, health-checks, and supervises the FastAPI backend process.
+//! Tauri backend supervision for Find desktop application.
+//! Spawns, health-checks, and supervises the configured FastAPI backend process.
 
-use tauri::Manager;
-use tauri::Emitter;
-use tauri_plugin_shell::ShellExt;
-use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use tauri::Emitter;
+use tauri::Manager;
+use tauri_plugin_shell::process::{CommandChild, CommandEvent};
+use tauri_plugin_shell::ShellExt;
 
-/// Shared state tracking the backend sidecar process handle and running status.
+const BACKEND_COMMAND: &str = "find-backend";
+
+/// Shared state tracking the backend process handle and running status.
 #[derive(Default)]
 struct BackendState {
     running: bool,
@@ -37,18 +39,23 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(move |_app_handle, event| {
             if let tauri::RunEvent::Exit = event {
-                log::info!("App exiting - terminating backend sidecar.");
-                let mut s = state_for_exit.lock().unwrap();
-                if let Some(child) = s.child.take() {
-                    let _ = child.kill();
-                    log::info!("Backend sidecar killed.");
-                }
-                s.running = false;
+                stop_backend(&state_for_exit, "App exiting");
             }
         });
 }
 
-/// Supervises the backend sidecar process with automatic restart on crash.
+/// Stops the current backend process if one is registered.
+fn stop_backend(state: &SharedState, reason: &str) {
+    log::info!("{} - terminating backend process.", reason);
+    let mut s = state.lock().unwrap();
+    if let Some(child) = s.child.take() {
+        let _ = child.kill();
+        log::info!("Backend process killed.");
+    }
+    s.running = false;
+}
+
+/// Supervises the backend process with automatic restart on crash.
 ///
 /// Retries up to `MAX_RETRIES` times with a `RETRY_DELAY_SECS` delay between attempts.
 /// Emits `backend-failed` event to the frontend if all retries are exhausted.
@@ -57,17 +64,22 @@ async fn supervise_backend(app: tauri::AppHandle, state: SharedState) {
     const RETRY_DELAY_SECS: u64 = 2;
     let mut retry_count = 0;
     loop {
-        log::info!("Starting backend sidecar (attempt {})...", retry_count + 1);
-        match start_sidecar(&app, &state).await {
+        log::info!("Starting backend process (attempt {})...", retry_count + 1);
+        match start_backend(&app, &state).await {
             Ok(_) => {
-                log::info!("Backend sidecar exited cleanly.");
+                log::info!("Backend process exited cleanly.");
                 state.lock().unwrap().running = false;
                 break;
             }
             Err(e) => {
                 state.lock().unwrap().running = false;
                 retry_count += 1;
-                log::error!("Backend crashed: {}. Retry {}/{}", e, retry_count, MAX_RETRIES);
+                log::error!(
+                    "Backend crashed: {}. Retry {}/{}",
+                    e,
+                    retry_count,
+                    MAX_RETRIES
+                );
                 if retry_count >= MAX_RETRIES {
                     log::error!("Backend failed {} times - giving up.", MAX_RETRIES);
                     let _ = app.emit("backend-failed", "Backend crashed too many times");
@@ -95,24 +107,30 @@ async fn wait_for_health() -> Result<(), String> {
                 return Ok(());
             }
             _ => {
-                log::info!("Health check attempt {}/{} - not ready yet.", attempt, MAX_ATTEMPTS);
+                log::info!(
+                    "Health check attempt {}/{} - not ready yet.",
+                    attempt,
+                    MAX_ATTEMPTS
+                );
             }
         }
     }
-    Err(format!("Backend did not become healthy after {} attempts.", MAX_ATTEMPTS))
+    Err(format!(
+        "Backend did not become healthy after {} attempts.",
+        MAX_ATTEMPTS
+    ))
 }
 
-/// Spawns the backend sidecar, waits for health, then monitors output until termination.
+/// Spawns the backend command, waits for health, then monitors output until termination.
 ///
 /// Emits `backend-ready` to the frontend only after the health check passes.
 /// Returns `Ok(())` on clean exit (code 0), or `Err` on crash or unexpected channel closure.
-async fn start_sidecar(app: &tauri::AppHandle, state: &SharedState) -> Result<(), String> {
+async fn start_backend(app: &tauri::AppHandle, state: &SharedState) -> Result<(), String> {
     let shell = app.shell();
     let (mut rx, child) = shell
-        .sidecar("find-backend")
-        .map_err(|e| format!("Failed to create sidecar: {}", e))?
+        .command(BACKEND_COMMAND)
         .spawn()
-        .map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
+        .map_err(|e| format!("Failed to spawn backend command: {}", e))?;
 
     {
         let mut s = state.lock().unwrap();
@@ -120,7 +138,7 @@ async fn start_sidecar(app: &tauri::AppHandle, state: &SharedState) -> Result<()
         s.child = Some(child);
     }
 
-    log::info!("Backend sidecar spawned. Waiting for health check...");
+    log::info!("Backend process spawned. Waiting for health check...");
 
     match wait_for_health().await {
         Ok(_) => {
@@ -129,6 +147,7 @@ async fn start_sidecar(app: &tauri::AppHandle, state: &SharedState) -> Result<()
         }
         Err(e) => {
             log::error!("Health check failed: {}", e);
+            stop_backend(state, "Health check failed");
             let _ = app.emit("backend-failed", e.clone());
             return Err(e);
         }
@@ -136,16 +155,25 @@ async fn start_sidecar(app: &tauri::AppHandle, state: &SharedState) -> Result<()
 
     while let Some(event) = rx.recv().await {
         match event {
-            CommandEvent::Stdout(line) => log::info!("[backend] {}", String::from_utf8_lossy(&line).trim()),
-            CommandEvent::Stderr(line) => log::warn!("[backend err] {}", String::from_utf8_lossy(&line).trim()),
-            CommandEvent::Error(err) => return Err(format!("Sidecar error: {}", err)),
+            CommandEvent::Stdout(line) => {
+                log::info!("[backend] {}", String::from_utf8_lossy(&line).trim());
+            }
+            CommandEvent::Stderr(line) => {
+                log::warn!("[backend err] {}", String::from_utf8_lossy(&line).trim());
+            }
+            CommandEvent::Error(err) => return Err(format!("Backend command error: {}", err)),
             CommandEvent::Terminated(payload) => {
                 let code = payload.code.unwrap_or(-1);
-                return if code == 0 { Ok(()) } else { Err(format!("Exited with code {}", code)) };
+                state.lock().unwrap().child = None;
+                return if code == 0 {
+                    Ok(())
+                } else {
+                    Err(format!("Exited with code {}", code))
+                };
             }
             _ => {}
         }
     }
 
-    Err("Sidecar channel closed unexpectedly.".to_string())
+    Err("Backend process channel closed unexpectedly.".to_string())
 }

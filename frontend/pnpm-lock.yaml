@@ -14,6 +14,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.100.11
         version: 5.100.14(react@19.2.5)
+      '@tauri-apps/api':
+        specifier: ^2.11.0
+        version: 2.11.0
       axios:
         specifier: ^1.16.0
         version: 1.16.0
@@ -611,6 +614,9 @@ packages:
     resolution: {integrity: sha512-oOr6aRdSFEwWhzxEkD/9ZcItM3+LjBSkeVmadWKwUssAHTsqd/7bOjWrX4AbvEkoEhgAxzN0Xk6H/aYzXiYBAw==}
     peerDependencies:
       react: ^18 || ^19
+
+  '@tauri-apps/api@2.11.0':
+    resolution: {integrity: sha512-7CinYODhky9lmO23xHnUFv0Xt43fbtWMyxZcLcRBlFkcgXKuEirBvHpmtJ89YMhyeGcq20Wuc47Fa4XjyniywA==}
 
   '@tauri-apps/cli-darwin-arm64@2.11.2':
     resolution: {integrity: sha512-+4UZzLt+eOAEQCwgd+TqKgyUJMrvx+BgdXLLaqJYmPqzP+nE6YZr/hY6CWLYGQb8jFn99jEkmC6uA3tNvamA1w==}
@@ -2081,6 +2087,8 @@ snapshots:
     dependencies:
       '@tanstack/query-core': 5.100.14
       react: 19.2.5
+
+  '@tauri-apps/api@2.11.0': {}
 
   '@tauri-apps/cli-darwin-arm64@2.11.2':
     optional: true
