@@ -275,6 +275,37 @@ class TestHybridEmbeddingEdgeCases:
         norm = float(np.linalg.norm(result))
         assert abs(norm - 1.0) < 1e-5, f"Expected unit norm, got {norm}"
 
+    def test_zero_vector_output_stays_finite(self):
+        """A degenerate all-zero embedding path must not produce NaN values."""
+        zero_vec = np.zeros(DIM, dtype=np.float32)
+        result, _ = _run(
+            image_vec=zero_vec,
+            caption="",
+            objects=[],
+            ocr_text="",
+            text_map={},
+        )
+
+        assert np.all(np.isfinite(result))
+        np.testing.assert_allclose(result, zero_vec, atol=1e-6)
+
+    def test_invalid_text_vector_falls_back_to_finite_embedding(self):
+        """NaN/inf text vectors must not poison the hybrid embedding."""
+        invalid_vec = np.array(
+            [np.nan, np.inf, -np.inf, 0, 0, 0, 0, 0],
+            dtype=np.float32,
+        )
+        result, _ = _run(
+            image_vec=IMG_VEC,
+            caption="bad text",
+            objects=[],
+            ocr_text="",
+            text_map={"bad text": invalid_vec},
+        )
+
+        assert np.all(np.isfinite(result))
+        np.testing.assert_allclose(result, IMG_VEC, atol=1e-6)
+
 
 class TestBiasRemoval:
     """

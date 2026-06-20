@@ -36,6 +36,29 @@ PERSON_OBJECT_LABELS = {
 }
 
 
+def _safe_normalize_embedding(
+    vector: np.ndarray,
+    *,
+    fallback: np.ndarray | None = None,
+) -> np.ndarray:
+    """Return a finite normalized embedding or a finite fallback vector."""
+    clean_vector = np.nan_to_num(
+        np.asarray(vector, dtype=np.float32),
+        nan=0.0,
+        posinf=0.0,
+        neginf=0.0,
+    )
+    norm = np.linalg.norm(clean_vector)
+
+    if np.isfinite(norm) and norm > 0:
+        return (clean_vector / norm).astype(np.float32)
+
+    if fallback is not None:
+        return _safe_normalize_embedding(fallback)
+
+    return np.zeros_like(clean_vector, dtype=np.float32)
+
+
 def _record_stage_error(metadata: Dict[str, Any], stage: str, error: Exception) -> None:
     """Store a safe, user-facing stage failure without stack traces."""
     if isinstance(error, ModelUnavailableError):
@@ -182,7 +205,7 @@ def generate_hybrid_embedding(
         embedder = get_clip_embedder()
 
         # --- 1. Image vector (always computed) ---
-        image_embedding = embedder.embed_image(image)
+        image_embedding = _safe_normalize_embedding(embedder.embed_image(image))
 
         # --- 2. Build text signals — only non-empty strings qualify ---
         caption = (metadata.get("caption") or "").strip()
@@ -225,13 +248,13 @@ def generate_hybrid_embedding(
 
         if text_inputs:
             if len(text_inputs) == 1:
-                signal_vectors[text_signal_names[0]] = embedder.embed_text(
-                    text_inputs[0]
+                signal_vectors[text_signal_names[0]] = _safe_normalize_embedding(
+                    embedder.embed_text(text_inputs[0])
                 )
             else:
                 text_embeddings = embedder.embed_text(text_inputs)
                 for name, vec in zip(text_signal_names, text_embeddings):
-                    signal_vectors[name] = vec
+                    signal_vectors[name] = _safe_normalize_embedding(vec)
 
         active_signals = list(signal_vectors.keys())
 
@@ -252,12 +275,10 @@ def generate_hybrid_embedding(
             n = len(signal_vectors)
             hybrid_vector = sum(signal_vectors.values()) / n
 
-        norm = np.linalg.norm(hybrid_vector)
-        if norm > 0:
-            hybrid_vector = hybrid_vector / norm
-        else:
-            # Degenerate fallback — return the image vector unchanged
-            hybrid_vector = image_embedding
+        hybrid_vector = _safe_normalize_embedding(
+            hybrid_vector,
+            fallback=image_embedding,
+        )
 
         logger.info(
             "Hybrid embedding generated (signals=%d: %s, ocr_weighting=%s)",
