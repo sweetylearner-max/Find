@@ -7,6 +7,7 @@ import pytest
 
 from find_api.core.database import get_db
 from find_api.main import app
+from find_api.routers.search import _metadata_filter_sql
 from find_api.services.query_cache import clear_query_cache, invalidate_query_cache
 
 
@@ -366,6 +367,24 @@ class TestSearchResponseShape:
         assert invalid_date.status_code == 422
         assert invalid_range.status_code == 422
         assert invalid_orientation.status_code == 422
+
+    def test_metadata_filter_cache_key_escapes_user_values(self):
+        _, _, filter_key = _metadata_filter_sql(
+            camera_make="Sony&A",
+            camera_model="Alpha=7",
+            min_width=None,
+            min_height=None,
+            file_type="jpeg&png",
+            date_from=None,
+            date_to=None,
+            orientation=None,
+        )
+
+        assert "camera_make=sony%26a" in filter_key
+        assert "camera_model=alpha%3D7" in filter_key
+        assert "file_type=jpeg%26png" in filter_key
+        assert "sony&a" not in filter_key
+        assert "alpha=7" not in filter_key
 
 
 class TestSearchDiagnostics:

@@ -83,6 +83,8 @@ def parse_metadata_date(value: str | None, field_name: str) -> datetime | None:
     if not raw_value:
         return None
 
+    is_date_only = "T" not in raw_value and ":" not in raw_value
+
     try:
         parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
     except ValueError as exc:
@@ -90,6 +92,8 @@ def parse_metadata_date(value: str | None, field_name: str) -> datetime | None:
 
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
+    if field_name == "date_to" and is_date_only:
+        parsed = parsed.replace(hour=23, minute=59, second=59, microsecond=999999)
     return parsed
 
 
@@ -160,9 +164,15 @@ def get_gallery(
         description="Filter by processing status",
     ),
     liked: Optional[bool] = None,
-    camera_make: Optional[str] = Query(None, description="Filter by EXIF camera make"),
+    camera_make: Optional[str] = Query(
+        None,
+        max_length=255,
+        description="Filter by EXIF camera make",
+    ),
     camera_model: Optional[str] = Query(
-        None, description="Filter by EXIF camera model"
+        None,
+        max_length=255,
+        description="Filter by EXIF camera model",
     ),
     min_width: Optional[int] = Query(None, ge=1, description="Minimum image width"),
     min_height: Optional[int] = Query(None, ge=1, description="Minimum image height"),

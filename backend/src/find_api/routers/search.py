@@ -5,6 +5,7 @@ Search endpoint for semantic image search
 import json
 import time
 from typing import Any, Literal
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
@@ -57,56 +58,59 @@ def _metadata_filter_sql(
     params: dict[str, Any] = {}
     filter_parts: list[str] = []
 
+    def add_filter_part(key: str, value: object) -> None:
+        filter_parts.append(f"{key}={quote(str(value), safe='')}")
+
     if camera_make:
         value = camera_make.strip()
         if value:
             clauses.append("AND exif_json ->> 'make' ILIKE :camera_make_pattern")
             params["camera_make_pattern"] = f"%{value}%"
-            filter_parts.append(f"camera_make={value.lower()}")
+            add_filter_part("camera_make", value.lower())
 
     if camera_model:
         value = camera_model.strip()
         if value:
             clauses.append("AND exif_json ->> 'model' ILIKE :camera_model_pattern")
             params["camera_model_pattern"] = f"%{value}%"
-            filter_parts.append(f"camera_model={value.lower()}")
+            add_filter_part("camera_model", value.lower())
 
     if parsed_date_from is not None:
         clauses.append("AND created_at >= :date_from")
         params["date_from"] = parsed_date_from
-        filter_parts.append(f"date_from={parsed_date_from.isoformat()}")
+        add_filter_part("date_from", parsed_date_from.isoformat())
 
     if parsed_date_to is not None:
         clauses.append("AND created_at <= :date_to")
         params["date_to"] = parsed_date_to
-        filter_parts.append(f"date_to={parsed_date_to.isoformat()}")
+        add_filter_part("date_to", parsed_date_to.isoformat())
 
     if min_width is not None:
         clauses.append("AND width >= :min_width")
         params["min_width"] = min_width
-        filter_parts.append(f"min_width={min_width}")
+        add_filter_part("min_width", min_width)
 
     if min_height is not None:
         clauses.append("AND height >= :min_height")
         params["min_height"] = min_height
-        filter_parts.append(f"min_height={min_height}")
+        add_filter_part("min_height", min_height)
 
     if orientation == "landscape":
         clauses.append("AND width > height")
-        filter_parts.append("orientation=landscape")
+        add_filter_part("orientation", "landscape")
     elif orientation == "portrait":
         clauses.append("AND height > width")
-        filter_parts.append("orientation=portrait")
+        add_filter_part("orientation", "portrait")
     elif orientation == "square":
         clauses.append("AND width = height")
-        filter_parts.append("orientation=square")
+        add_filter_part("orientation", "square")
 
     if file_type:
         value = file_type.strip().lower().lstrip(".")
         if value:
             clauses.append("AND content_type ILIKE :file_type_pattern")
             params["file_type_pattern"] = f"%{value}%"
-            filter_parts.append(f"file_type={value}")
+            add_filter_part("file_type", value)
 
     return "\n        ".join(clauses), params, "&".join(sorted(filter_parts))
 
@@ -138,8 +142,16 @@ def search_images(
         False,
         description="Include raw OCR text in response metadata (disabled by default)",
     ),
-    camera_make: str | None = Query(None, description="Filter by EXIF camera make"),
-    camera_model: str | None = Query(None, description="Filter by EXIF camera model"),
+    camera_make: str | None = Query(
+        None,
+        max_length=255,
+        description="Filter by EXIF camera make",
+    ),
+    camera_model: str | None = Query(
+        None,
+        max_length=255,
+        description="Filter by EXIF camera model",
+    ),
     min_width: int | None = Query(None, ge=1, description="Minimum image width"),
     min_height: int | None = Query(None, ge=1, description="Minimum image height"),
     file_type: str | None = Query(

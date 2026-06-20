@@ -514,6 +514,21 @@ class TestGalleryMetadataFilters:
         assert body["total"] == 1
         assert body["items"][0]["filename"] == "newer.jpg"
 
+    def test_gallery_date_to_includes_entire_date_only_day(self, client, db):
+        early = _seed(db, filename="early.jpg", status="indexed")
+        late = _seed(db, filename="late.jpg", status="indexed")
+        next_day = _seed(db, filename="next-day.jpg", status="indexed")
+        early.created_at = datetime(2026, 2, 28, 0, 5, tzinfo=timezone.utc)
+        late.created_at = datetime(2026, 2, 28, 23, 55, tzinfo=timezone.utc)
+        next_day.created_at = datetime(2026, 3, 1, 0, 1, tzinfo=timezone.utc)
+        db.commit()
+
+        response = client.get("/api/gallery", params={"date_to": "2026-02-28"})
+
+        assert response.status_code == 200
+        filenames = {item["filename"] for item in response.json()["items"]}
+        assert filenames == {"early.jpg", "late.jpg"}
+
     def test_gallery_filters_by_orientation(self, client, db):
         landscape = _seed(db, filename="landscape.jpg", status="indexed")
         portrait = _seed(db, filename="portrait.jpg", status="indexed")
