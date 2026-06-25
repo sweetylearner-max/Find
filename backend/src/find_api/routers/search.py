@@ -281,14 +281,19 @@ def search_images(
                 width,
                 height,
                 created_at,
-                1 - (vector <=> CAST(:embedding AS vector)) as similarity
+                1 - (vector <=> CAST(:embedding AS vector)) as similarity,
+                COALESCE(ranking_boost, 0) as ranking_boost,
+                (
+                    1 - (vector <=> CAST(:embedding AS vector))
+                    + COALESCE(ranking_boost, 0)
+                ) as final_score
             FROM media
             WHERE status = 'indexed' AND vector IS NOT NULL
             {metadata_filter_sql}
         )
         SELECT * FROM ranked_results
         WHERE similarity > :threshold AND is_hidden = false
-        ORDER BY similarity DESC, id ASC
+        ORDER BY final_score DESC, similarity DESC, id ASC
         LIMIT :limit OFFSET :skip
     """.format(metadata_filter_sql=metadata_filter_sql)
     )
