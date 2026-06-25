@@ -26,7 +26,6 @@ def _seed(
         file_size=1024,
         status=status,
         liked=liked,
-        is_hidden=is_hidden,
         width=800,
         height=600,
         thumbnail_key=f"thumbnails/test/{filename}.webp",
@@ -35,6 +34,8 @@ def _seed(
         thumbnail_width=256,
         thumbnail_height=192,
         metadata_json=metadata_json,
+        is_hidden=is_hidden,
+        vault_state="hidden_encrypted" if is_hidden else "visible",
         created_at=datetime.now(timezone.utc),
     )
     db.add(media)
@@ -321,6 +322,33 @@ class TestGalleryFiltering:
         assert len(body["items"]) == 2
         assert body["skip"] == 2
 
+    def test_hidden_media_excluded_from_gallery_listing(self, client, db):
+        visible = _seed(db, filename="visible.jpg", status="indexed")
+        hidden = _seed(db, filename="hidden.jpg", status="indexed", is_hidden=True)
+
+        body = client.get("/api/gallery").json()
+        ids = [item["id"] for item in body["items"]]
+
+        assert visible.id in ids
+        assert hidden.id not in ids
+
+    def test_hidden_media_not_available_on_public_media_routes(self, client, db):
+        hidden = _seed(
+            db, filename="hidden-detail.jpg", status="indexed", is_hidden=True
+        )
+
+        detail_response = client.get(f"/api/image/{hidden.id}")
+        thumbnail_response = client.get(
+            f"/api/image/{hidden.id}/thumbnail", follow_redirects=False
+        )
+        like_response = client.post(f"/api/image/{hidden.id}/like")
+        reprocess_response = client.post(f"/api/image/{hidden.id}/reprocess")
+
+        assert detail_response.status_code == 404
+        assert thumbnail_response.status_code == 404
+        assert like_response.status_code == 404
+        assert reprocess_response.status_code == 404
+
 
 class TestDeleteImage:
     """DELETE /api/image/{media_id}"""
@@ -431,3 +459,21 @@ class TestBulkDeleteImages:
         assert body["failed_ids"] == [first.id]
         assert db.query(Media).filter(Media.id == first.id).first() is not None
         assert db.query(Media).filter(Media.id == second.id).first() is None
+
+    def test_bulk_delete_treats_hidden_ids_as_missing(self, client, db):
+        visible = _seed(db, filename="bulk-visible.jpg", status="indexed")
+        hidden = _seed(db, filename="bulk-hidden.jpg", status="indexed", is_hidden=True)
+
+        with patch("find_api.routers.gallery.delete_file"):
+            response = client.post(
+                "/api/images/bulk-delete",
+                json={"media_ids": [hidden.id, visible.id]},
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["deleted_ids"] == [visible.id]
+        assert body["missing_ids"] == [hidden.id]
+        assert body["failed_ids"] == []
+        assert db.query(Media).filter(Media.id == visible.id).first() is None
+        assert db.query(Media).filter(Media.id == hidden.id).first() is not None

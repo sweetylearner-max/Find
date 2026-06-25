@@ -46,11 +46,13 @@ def _signature_result(token: str = "1:2026-01-01T00:00:00+00:00") -> MagicMock:
     return result
 
 
-def _mock_search(client, fake_rows, *, params=None, total_count=None):
+def _mock_search(client, fake_rows, *, params=None, total_count=None, return_db=False):
     """Call /api/search with mocked embeddings and paginated DB responses."""
-    response, _mock_db = _mock_search_with_db(
+    response, mock_db = _mock_search_with_db(
         client, fake_rows, params=params, total_count=total_count
     )
+    if return_db:
+        return response, mock_db
     return response
 
 
@@ -331,6 +333,35 @@ class TestSearchResponseShape:
         include_meta = include_response.json()["results"][0]["metadata"]
         assert "ocr_text" not in default_meta
         assert include_meta["ocr_text"] == "total 42.00"
+
+    def test_hidden_filter_is_applied_in_search_queries(self, client):
+        row = MagicMock(
+            id=400,
+            filename="visible.png",
+            minio_key="images/40/400.png",
+            thumbnail_key="thumbnails/40/400.webp",
+            thumbnail_content_type="image/webp",
+            thumbnail_size=256,
+            thumbnail_width=128,
+            thumbnail_height=72,
+            status="indexed",
+            liked=False,
+            width=100,
+            height=100,
+            cluster_id=None,
+            similarity=0.7,
+            metadata_json="{}",
+            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        )
+
+        response, mock_db = _mock_search(client, [row], return_db=True)
+
+        assert response.status_code == 200
+        assert mock_db.execute.call_count == 3
+        count_sql = str(mock_db.execute.call_args_list[1].args[0])
+        result_sql = str(mock_db.execute.call_args_list[2].args[0])
+        assert "is_hidden = false" in count_sql
+        assert "is_hidden = false" in result_sql
 
 
 class TestSearchDiagnostics:
