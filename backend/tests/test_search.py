@@ -50,11 +50,10 @@ def _signature_result(token: str = "1:2026-01-01T00:00:00+00:00") -> MagicMock:
 def _mock_search(client, fake_rows, *, params=None, total_count=None, return_db=False):
     """Call /api/search with mocked embeddings and paginated DB responses."""
     response, mock_db = _mock_search_with_db(
-        client,
         fake_rows,
         params=params,
         total_count=total_count,
-        return_db=return_db,
+        return_db=return_db
     )
     if return_db:
         return response, mock_db

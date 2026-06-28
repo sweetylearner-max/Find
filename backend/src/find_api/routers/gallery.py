@@ -207,7 +207,7 @@ def get_gallery(
         Paginated list of media records
     """
     # Build query
-    query = db.query(Media).filter(Media.is_hidden.is_(False))
+    query = _public_media_query(db)
 
     if status:
         query = query.filter(Media.status == status)
@@ -304,7 +304,7 @@ def get_image_detail(media_id: int, db: Session = Depends(get_db)):
     row = (
         db.query(Media, Cluster.label)
         .outerjoin(Cluster, Media.cluster_id == Cluster.id)
-        .filter(Media.id == media_id)
+        .filter(Media.id == media_id, Media.is_hidden.is_(False))
         .first()
     )
 
@@ -359,9 +359,7 @@ def get_image_thumbnail(media_id: int, db: Session = Depends(get_db)):
     Get a redirect to the image file for use as a thumbnail.
     Returns a redirect to the MinIO presigned URL.
     """
-    media = db.query(Media).filter(Media.id == media_id).first()
-    if not media:
-        raise HTTPException(404, "Image not found")
+    media = _load_public_media_or_404(db, media_id)
 
     object_key = media.thumbnail_key or media.minio_key
 
@@ -386,7 +384,7 @@ def backfill_missing_thumbnails(
     clustering.
     """
     media_list = (
-        db.query(Media)
+        _public_media_query(db)
         .filter(Media.thumbnail_key.is_(None))
         .order_by(desc(Media.created_at))
         .limit(limit)
@@ -413,7 +411,7 @@ def backfill_missing_thumbnails(
         job_ids.append(job.id)
 
     remaining = (
-        db.query(Media)
+        _public_media_query(db)
         .filter(
             Media.thumbnail_key.is_(None), Media.id.notin_([m.id for m in media_list])
         )
@@ -430,9 +428,7 @@ def backfill_missing_thumbnails(
 
 @router.post("/image/{media_id}/like")
 def toggle_like(media_id: int, db: Session = Depends(get_db)):
-    media = db.query(Media).filter(Media.id == media_id).first()
-    if not media:
-        raise HTTPException(404, "Image not found")
+    media = _load_public_media_or_404(db, media_id)
 
     media.liked = not media.liked
     db.commit()
@@ -452,9 +448,7 @@ def reprocess_image(media_id: int, db: Session = Depends(get_db)):
     - Images with status ``indexed`` that have incomplete metadata (no caption)
     - Images with status ``indexed`` that are missing a thumbnail
     """
-    media = db.query(Media).filter(Media.id == media_id).first()
-    if not media:
-        raise HTTPException(404, "Image not found")
+    media = _load_public_media_or_404(db, media_id)
 
     metadata = normalize_metadata(media.metadata_json)
     is_indexed_incomplete = media.status == "indexed" and not metadata.get("caption")
@@ -535,9 +529,7 @@ def _delete_media_files(media: Media) -> None:
 
 @router.delete("/image/{media_id}")
 def delete_image(media_id: int, db: Session = Depends(get_db)):
-    media = db.query(Media).filter(Media.id == media_id).first()
-    if not media:
-        raise HTTPException(404, "Image not found")
+    media = _load_public_media_or_404(db, media_id)
 
     try:
         _delete_media_files(media)
@@ -561,7 +553,7 @@ def bulk_delete_images(
     db: Session = Depends(get_db),
 ):
     requested_ids = list(dict.fromkeys(request.media_ids))
-    media_rows = db.query(Media).filter(Media.id.in_(requested_ids)).all()
+    media_rows = _public_media_query(db).filter(Media.id.in_(requested_ids)).all()
     media_by_id = {media.id: media for media in media_rows}
     missing_ids = [
         media_id for media_id in requested_ids if media_id not in media_by_id
